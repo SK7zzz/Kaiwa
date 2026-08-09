@@ -45,9 +45,13 @@ def llm_config() -> dict:
     if provider == "ollama":
         return {"provider": "ollama", "model": current_model(), "key": None}
     info = llm.PROVIDERS[provider]
+    # Fall back to the default if the saved model is unknown — a previously
+    # picked id may have been retired by the provider (e.g. gemini-2.5-flash).
+    saved = setting(f"model_{provider}")
+    model = saved if saved in info["models"] else info["models"][0]
     return {
         "provider": provider,
-        "model": setting(f"model_{provider}") or info["models"][0],
+        "model": model,
         "key": (setting(f"api_key_{provider}") or "").strip(),
     }
 
@@ -173,7 +177,8 @@ def providers():
                 "needs_key": info["needs_key"],
                 "models": info["models"] if pid != "ollama" else llm.list_models(),
                 "has_key": bool((s.get(f"api_key_{pid}") or "").strip()),
-                "model": s.get(f"model_{pid}") if pid != "ollama" else s.get("model"),
+                "model": (s.get(f"model_{pid}") if s.get(f"model_{pid}") in info["models"]
+                          else info["models"][0]) if pid != "ollama" else s.get("model"),
             }
             for pid, info in llm.PROVIDERS.items()
         ],

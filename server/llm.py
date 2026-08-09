@@ -25,13 +25,19 @@ API_OPENAI = "https://api.openai.com/v1"
 API_ANTHROPIC = "https://api.anthropic.com/v1"
 
 # Curated model lists for cloud providers (first entry = default: cheap + fast,
-# which is what a conversation tutor wants).
+# which is what a conversation tutor wants). Prefer providers' "-latest"/newest
+# ids as the default so a model deprecation doesn't 404 us out (gemini-2.5-flash
+# was gated off for new API keys before its published shutdown date, and OpenAI's
+# gpt-4o/4.1 line is in the Oct-2026 shutdown wave); explicit stable ids follow
+# for anyone who wants to pin a version.
 PROVIDERS = {
     "ollama": {"label": "Local (Ollama)", "needs_key": False, "models": []},
     "gemini": {"label": "Google Gemini", "needs_key": True,
-               "models": ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]},
+               "models": ["gemini-flash-latest", "gemini-3.6-flash",
+                          "gemini-3.5-flash", "gemini-3.5-flash-lite",
+                          "gemini-pro-latest"]},
     "openai": {"label": "OpenAI", "needs_key": True,
-               "models": ["gpt-4o-mini", "gpt-4.1-mini", "gpt-4o", "gpt-4.1"]},
+               "models": ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]},
     "anthropic": {"label": "Anthropic Claude", "needs_key": True,
                   "models": ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-8"]},
 }
