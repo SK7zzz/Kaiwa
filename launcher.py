@@ -73,10 +73,14 @@ def _start_voicevox() -> None:
         pass
     try:
         # The engine resolves its models/resources relative to its own directory.
+        # CREATE_NO_WINDOW: the engine is a console-subsystem Python/uvicorn server;
+        # without this, a windowed (console=False) Kaiwa spawning it pops a stray
+        # console window on Windows at startup. No-op off Windows (flag is 0).
         proc = subprocess.Popen(
             [exe, "--host", "127.0.0.1", "--port", str(VOICEVOX_PORT)],
             cwd=engine_dir, env=paths.system_env(),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         atexit.register(lambda: proc.terminate())
     except Exception:
