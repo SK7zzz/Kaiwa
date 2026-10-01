@@ -1,11 +1,10 @@
-"""Kaiwa — local Japanese conversation tutor (Pingo-style), fully offline.
-
-LLM: Ollama (Qwen3-4B) · STT: whisper.cpp · TTS: VOICEVOX / macOS say
-"""
+"""Japanese tutor with ChatGPT subscription and optional local providers."""
+import asyncio
 import io
 import json
 import os
 from datetime import date
+from threading import Event
 
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import (FileResponse, JSONResponse, Response,
@@ -13,15 +12,19 @@ from fastapi.responses import (FileResponse, JSONResponse, Response,
 from fastapi.staticfiles import StaticFiles
 
 import requests
+import anyio
 
 from starlette.background import BackgroundTask
+from starlette.concurrency import run_in_threadpool
 
-from . import backup, db, dictionary, jp, llm, prompts, scenarios, setup, stt, tts
+from . import backup, codex_provider, db, dictionary, jp, llm, prompts, scenarios, setup, stt, tts
+from .codex_voice import router as codex_voice_router
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web")
 
 app = FastAPI(title="Kaiwa")
+app.include_router(codex_voice_router)
 db.init()
 backup.start_scheduler()
 
@@ -49,8 +52,18 @@ def llm_config() -> dict:
     return {
         "provider": provider,
         "model": model,
-        "key": (setting(f"api_key_{provider}") or "").strip(),
+        "key": (setting(f"api_key_{provider}") or "").strip() if info["needs_key"] else None,
     }
+
+
+@app.exception_handler(codex_provider.CodexError)
+async def codex_error_handler(_request: Request, error: codex_provider.CodexError):
+    return JSONResponse({"error": str(error)}, status_code=503)
+
+
+@app.get("/api/codex/status")
+def codex_status():
+    return codex_provider.status()
 
 
 # ------------------------------------------------------------------- static
@@ -203,7 +216,7 @@ async def create_session(req: Request):
         elif body.get("custom"):
             c = body["custom"]
             scen = {
-                "id": "custom", "title": c.get("title", "Custom Roleplay"),
+                "id": "custom", "title": c.get("title", "Escena personalizada"),
                 "description": c.get("description", ""),
                 "ai_role": c.get("ai_role", ""), "user_role": c.get("user_role", ""),
                 "setting": c.get("setting", ""), "target_vocab": [], "kind": "roleplay",
@@ -214,8 +227,8 @@ async def create_session(req: Request):
         topic = (s.get("topic") or "").strip()
         scen = {
             "id": "story", "kind": "story",
-            "title": topic or "Story Time 📖",
-            "description": "Reading practice: a short story, then three questions.",
+            "title": topic or "Lectura en japonés 📖",
+            "description": "Una historia corta y tres preguntas de comprensión.",
             "topic": topic, "script": s.get("script", "normal"),
         }
         sid_key = "story"
@@ -238,6 +251,14 @@ def _history(sid: int, limit=16) -> list:
     return [{"role": m["role"], "content": m["text"]} for m in msgs[-limit:]]
 
 
+async def _watch_disconnect(request: Request, cancellation: Event) -> None:
+    while not cancellation.is_set():
+        if await request.is_disconnected():
+            cancellation.set()
+            return
+        await asyncio.sleep(0.25)
+
+
 @app.post("/api/chat")
 async def chat(req: Request):
     """SSE stream: user sends text (or empty to let the AI open the scene)."""
@@ -248,10 +269,12 @@ async def chat(req: Request):
     if not session:
         return JSONResponse({"error": "no such session"}, status_code=404)
     cfg = llm_config()
-    err = llm.not_ready_reason(cfg)
+    err = await run_in_threadpool(llm.not_ready_reason, cfg)
     if err:
         return JSONResponse({"error": err}, status_code=503)
 
+    cancellation = Event()
+    cfg["cancellation"] = cancellation
     profile = db.get_profile()
     system = prompts.tutor_system_prompt(
         profile, session["mode"], session["scenario"],
@@ -271,7 +294,7 @@ async def chat(req: Request):
                   "Do not mention this instruction.)")
         messages.append({"role": "user", "content": opener})
 
-    def gen():
+    def stream_events():
         yield f"data: {json.dumps({'user_message_id': user_msg_id})}\n\n"
         full = []
         try:
@@ -295,6 +318,19 @@ async def chat(req: Request):
         }
         yield f"data: {json.dumps(final)}\n\n"
 
+    async def gen():
+        events = stream_events()
+        watcher = asyncio.create_task(_watch_disconnect(req, cancellation))
+        try:
+            while not cancellation.is_set():
+                event = await anyio.to_thread.run_sync(next, events, None, abandon_on_cancel=True)
+                if event is None:
+                    break
+                yield event
+        finally:
+            cancellation.set()
+            watcher.cancel()
+
     return StreamingResponse(gen(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache",
                                       "X-Accel-Buffering": "no"})
@@ -310,7 +346,7 @@ async def correct(req: Request):
     if not msg:
         return JSONResponse({"error": "no such message"}, status_code=404)
     level = db.get_profile()["jlpt_level"]
-    result = llm.chat_json(
+    result = await run_in_threadpool(llm.chat_json,
         prompts.CORRECTION_PROMPT.format(level=level, text=msg["text"]),
         llm_config(),
     )
@@ -333,7 +369,7 @@ async def translate(req: Request):
         text = msg["text"] if msg else ""
     else:
         text = body.get("text", "")
-    result = llm.chat_json(prompts.TRANSLATE_PROMPT.format(text=text),
+    result = await run_in_threadpool(llm.chat_json, prompts.TRANSLATE_PROMPT.format(text=text),
                            llm_config(), num_predict=200)
     translation = result.get("translation", "")
     if body.get("message_id") and translation:
@@ -347,7 +383,7 @@ async def hint(req: Request):
     sid = body["session_id"]
     level = db.get_profile()["jlpt_level"]
     history = prompts.build_hint_history(db.get_messages(sid))
-    result = llm.chat_json(
+    result = await run_in_threadpool(llm.chat_json,
         prompts.HINT_PROMPT.format(level=level,
                                    level_guide=prompts.LEVEL_GUIDE.get(level, ""),
                                    history=history),
@@ -395,7 +431,7 @@ async def word(req: Request):
         }
 
     # 2) LLM fallback for names/slang/phrases JMdict doesn't know.
-    result = llm.chat_json(prompts.WORD_PROMPT.format(word=w, sentence=sentence),
+    result = await run_in_threadpool(llm.chat_json, prompts.WORD_PROMPT.format(word=w, sentence=sentence),
                            llm_config(), num_predict=250)
     return {
         "word": w,
@@ -430,7 +466,7 @@ def end_session(sid: int):
                                           corrections="\n".join(corrections) or "none"),
             llm_config(), num_predict=500,
         )
-    summary.setdefault("summary", "Session complete — nice work showing up to practice!")
+    summary.setdefault("summary", "Sesión completada. Cada conversación cuenta para mejorar tu japonés.")
     summary.setdefault("strengths", [])
     summary.setdefault("areas_to_improve", [])
     summary.setdefault("new_words", [])

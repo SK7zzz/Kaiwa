@@ -5,7 +5,9 @@ import sqlite3
 import time
 from datetime import date, datetime, timedelta
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "kaiwa.db")
+DB_PATH = os.environ.get("KAIWA_DB_PATH") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "kaiwa.db"
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS profile (
@@ -72,7 +74,8 @@ def _conn():
 def init():
     with _conn() as c:
         c.executescript(SCHEMA)
-        c.execute("INSERT OR IGNORE INTO profile (id) VALUES (1)")
+        c.execute("INSERT OR IGNORE INTO profile (id, settings) VALUES (1, ?)",
+                  (json.dumps({"provider": "codex"}),))
 
 
 # ------------------------------------------------------------------ profile
@@ -320,7 +323,7 @@ def dashboard() -> dict:
             recent.append({
                 "id": s["id"], "mode": s["mode"],
                 "title": (scen or {}).get(
-                    "title", "Voice Call" if s["mode"] == "call" else "Free Chat"),
+                    "title", "Conversación por voz" if s["mode"] == "call" else "Conversación libre"),
                 "started_at": s["started_at"],
                 "minutes": round((s["ended_at"] - s["started_at"]) / 60, 1),
                 "summary": summ,

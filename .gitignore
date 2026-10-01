@@ -18,3 +18,5 @@ __pycache__/
 # ---- OS / misc
 .DS_Store
 *.log
+/work/
+/tests/e2e/artifacts/

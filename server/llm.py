@@ -12,6 +12,8 @@ import os
 
 import requests
 
+from . import codex_provider
+
 OLLAMA = os.environ.get("KAIWA_OLLAMA_URL", "http://localhost:11434")
 PREFERRED = ["qwen3:4b-instruct-2507-q4_K_M", "qwen3:4b-instruct", "qwen3:4b",
              "qwen2.5:7b-instruct", "qwen2.5:7b"]
@@ -27,6 +29,8 @@ API_ANTHROPIC = "https://api.anthropic.com/v1"
 # gpt-4o/4.1 line is in the Oct-2026 shutdown wave); explicit stable ids follow
 # for anyone who wants to pin a version.
 PROVIDERS = {
+    "codex": {"label": "ChatGPT Pro · Codex", "needs_key": False,
+              "models": [codex_provider.DEFAULT_MODEL, "gpt-6-sol", "gpt-6.1-sol"]},
     "ollama": {"label": "Local (Ollama)", "needs_key": False, "models": []},
     "gemini": {"label": "Google Gemini", "needs_key": True,
                "models": ["gemini-flash-latest", "gemini-3.6-flash",
@@ -78,6 +82,9 @@ def ollama_up() -> bool:
 
 def not_ready_reason(cfg: dict) -> str | None:
     """None if the active provider can serve requests, else a user-facing message."""
+    if cfg["provider"] == "codex":
+        account = codex_provider.status()
+        return None if account["ready"] else account["message"]
     if cfg["provider"] == "ollama":
         if not cfg["model"]:
             return "Ollama is not running or no model installed"
@@ -136,7 +143,9 @@ def _cloud_max_tokens(num_predict: int) -> int:
 def chat_stream(messages: list, cfg: dict, temperature=0.7, num_predict=200):
     """Yield content deltas from a streaming chat call on the active provider."""
     p = cfg["provider"]
-    if p == "ollama":
+    if p == "codex":
+        yield from codex_provider.chat_stream(messages, cfg["model"], cfg.get("cancellation"))
+    elif p == "ollama":
         yield from _ollama_stream(messages, cfg["model"], temperature, num_predict)
     elif p == "gemini":
         yield from _gemini_stream(messages, cfg["model"], cfg["key"], temperature,
@@ -154,6 +163,8 @@ def chat_stream(messages: list, cfg: dict, temperature=0.7, num_predict=200):
 def chat_json(prompt: str, cfg: dict, temperature=0.2, num_predict=350) -> dict:
     """One-shot JSON call for analysis tasks (corrections, hints, ...)."""
     p = cfg["provider"]
+    if p == "codex":
+        return codex_provider.chat_json(prompt, cfg["model"])
     if p == "ollama":
         return _ollama_json(prompt, cfg["model"], temperature, num_predict)
     if p == "gemini":

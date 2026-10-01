@@ -1,3 +1,98 @@
+# Kaiwa para Ado — japonés con tu suscripción de ChatGPT
+
+Fork personal de [Kaiwa](https://github.com/yeshsanchez/Kaiwa), con interfaz y ayudas en español, conversación en japonés, situaciones prácticas, palabras guardadas y repaso espaciado. El nivel, los intereses y los objetivos se eligen al entrar y se pueden cambiar en Ajustes. El nivel inicial no presupone que conozcas hiragana, katakana o kanji.
+
+El proveedor predeterminado utiliza el **Codex app-server oficial**, autenticado con tu cuenta de **ChatGPT Pro**. Este recorrido no solicita API keys ni requiere saldo de la API: consume los límites de uso que tenga disponibles tu cuenta. OpenAI documenta el uso de [app-server en aplicaciones locales y de código abierto](https://learn.chatgpt.com/docs/app-server#auth-endpoints) y la [autenticación con ChatGPT](https://learn.chatgpt.com/docs/auth#sign-in-with-chatgpt). Las funciones de API de otros proveedores siguen disponibles como opción independiente en Ajustes.
+
+Las conversaciones y el audio de GPT Live se envían a OpenAI. El perfil, las palabras y el historial de aprendizaje se guardan en la base de datos local. Codex gestiona sus credenciales; Kaiwa no copia ni muestra los tokens.
+
+## Arrancar en tu Mac
+
+Requisitos: Python **3.10 o posterior**, Codex CLI y un navegador actual. Para GPT Live utiliza una CLI compatible con los métodos experimentales de voz; la integración se ha desarrollado con **Codex 0.159.3**. No asumas que una CLI distinta mantiene el mismo contrato experimental.
+
+La adaptación está en la rama `ado/spanish-codex-tutor` de [este fork](https://github.com/SK7zzz/Kaiwa/tree/ado/spanish-codex-tutor). Para descargarla en otro equipo:
+
+```sh
+git clone --branch ado/spanish-codex-tutor https://github.com/SK7zzz/Kaiwa.git
+cd Kaiwa
+```
+
+```sh
+codex --version
+codex login
+codex login status
+./setup.sh
+./run.sh
+```
+
+Si necesitas instalar esa versión de Codex mediante npm:
+
+```sh
+npm install -g @openai/codex@0.159.3
+```
+
+`codex login status` debe indicar que utilizas **ChatGPT**. Una sesión con API key no habilita este recorrido de suscripción. La app te guiará si falta Codex o el inicio de sesión; en el asistente elige «Mi suscripción de ChatGPT» cuando se muestre. Si ya existe un proveedor funcionando, puedes seleccionar la suscripción en Ajustes → Proveedor.
+
+Abre [http://127.0.0.1:8130](http://127.0.0.1:8130). `run.sh` escucha sólo en el ordenador local. No arranca Ollama ni publica enlaces al móvil por defecto. `setup.sh` prepara el entorno Python y las dependencias sin descargar el modelo de reconocimiento de voz de 466 MB.
+
+Si el Mac resuelve `python3` a Python 3.9 de Apple, el instalador busca otra versión compatible automáticamente. También puedes indicarla:
+
+```sh
+KAIWA_PYTHON=/opt/homebrew/bin/python3 ./setup.sh
+```
+
+Un `.venv` existente con Python antiguo se conserva y produce un error explícito; renómbralo antes de volver a ejecutar el instalador. No hace falta volver a descargar los datos de aprendizaje.
+
+## Tu recorrido de práctica
+
+1. Elige nombre, nivel N5–N1, intereses y objetivos. N5 es un punto de partida sencillo; no necesitas tener una certificación JLPT.
+2. Empieza con conversación libre, una lección, lectura o una situación de la vida real.
+3. Pide pistas o traducción al español cuando lo necesites; furigana y romaji se pueden activar.
+4. Guarda palabras útiles, repásalas y termina la sesión para obtener su informe en español. El tutor reutiliza tus palabras y errores recientes.
+
+**Conversación por voz** conecta GPT Live mediante WebRTC y la interfaz experimental `thread/realtime` de Codex. Necesita micrófono, audio habilitado, acceso a voz en tu cuenta y una CLI compatible. Las transcripciones disponibles se guardan para el informe. Que el texto o `/api/codex/status` funcione no demuestra por sí solo que la cuenta disponga de voz ni acredita la calidad de pronunciación; verifica una conversación completa. Esta vía puede cambiar con nuevas versiones de Codex.
+
+El diccionario contextual del tutor explica las palabras en español. El diccionario offline JMdict del proyecto original conserva definiciones japonés–inglés y se instala únicamente al optar por los recursos offline.
+
+## Opciones explícitas
+
+```sh
+./setup.sh --offline       # whisper.cpp (~466 MB) + JMdict japonés–inglés
+./run.sh --offline         # inicia Ollama y motores locales de voz ya instalados
+./run.sh --no-browser      # servidor sin abrir el navegador
+KAIWA_PORT=8131 ./run.sh    # otro puerto local
+```
+
+Para conversaciones completamente locales necesitas instalar Ollama, descargar un modelo y seleccionarlo en Ajustes. La entrada de voz local requiere `whisper-cli` (`brew install whisper-cpp`); VOICEVOX y AivisSpeech son opcionales. El modo `--offline` inicia motores instalados en `vendor/macos-x64/run` y `vendor/aivisspeech-engine/run`. Sus logs quedan en `data/logs/`.
+
+`./run.sh --phone` activa un enlace HTTPS de **Tailscale** expresamente. Requiere Tailscale conectado y la misma cuenta en el móvil. El servidor sigue escuchando en `127.0.0.1`; el enlace permite llegar desde tu red privada de Tailscale. Consulta Ajustes → En tu móvil para el QR. Tailscale conserva la configuración de `serve` en segundo plano: para desactivarla, ejecuta `tailscale serve reset` (o usa el ejecutable de la app Tailscale). La exposición pública y un despliegue alojado requieren un diseño de autenticación separado.
+
+## Verificación E2E y evidencia
+
+La ejecución integrada final pasa **11 E2E**, incluido audio de entrada/salida con transcripciones e informe. Consulta [el registro de verificación y sus límites](docs/verification.md).
+
+Consulta [tests/e2e/README.md](tests/e2e/README.md) para requisitos y alcance detallados. Necesitas Node.js 22+, Playwright y Chrome, además de Codex con sesión ChatGPT. Usa siempre una **base de datos nueva y aislada** con datos sintéticos; nunca la base personal de `data/kaiwa.db`.
+
+Terminal del servidor de pruebas:
+
+```sh
+mkdir -p work/e2e
+KAIWA_DB_PATH="$PWD/work/e2e/kaiwa-001.db" .venv/bin/python -m uvicorn server.main:app --host 127.0.0.1 --port 8130
+```
+
+En otro terminal, desde la raíz del repo:
+
+```sh
+node tests/e2e/run.mjs
+```
+
+La prueba de texto usa el proveedor real y consume cuota de tu suscripción. Comprueba onboarding, correcciones/traducción/pistas en español, vocabulario persistente, repaso, informe e historial en escritorio y móvil. Genera informe HTML, resultados JSON, capturas y trazas en `tests/e2e/artifacts/` por defecto. Para repetir, elige un archivo de base de datos nuevo (`kaiwa-002.db`, etc.). Los estados de instalación/login interceptados sólo prueban la UI; los E2E de texto no demuestran funcionamiento de voz. Mantén la evidencia y las bases sintéticas fuera del commit.
+
+Esta guía describe el fork y tiene prioridad sobre los comandos, proveedores predeterminados y afirmaciones de privacidad del README original, conservado a continuación como referencia. Se mantiene la licencia [AGPL-3.0](LICENSE) y la atribución al autor original.
+
+<details>
+<summary>Documentación original de Kaiwa — referencia upstream</summary>
+
 <div align="center">
 
 <img src="docs/cover.jpg" alt="Kaiwa! 会話 — Your Private Japanese Conversation Tutor" width="100%">
@@ -187,3 +282,5 @@ helps other learners find it.
 
 [AGPL-3.0](LICENSE) — free to use, modify, and share; if you run a modified
 version as a service, you must share your changes.
+
+</details>

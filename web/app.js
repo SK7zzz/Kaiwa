@@ -26,6 +26,15 @@ const ICON_MAP = {
   time_dates: "clock", likes_dislikes: "thumbs-up", daily_routine: "sun",
   past_tense: "calendar", te_form: "link", feelings: "smile", keigo_basics: "award",
 };
+const MODE_LABELS = {
+  free_chat: "Conversación libre", roleplay: "Escena", lesson: "Lección",
+  story: "Lectura", call: "Voz",
+};
+const CORRECTION_LABELS = {
+  particle: "Partículas", "verb form": "Forma verbal", "word choice": "Vocabulario",
+  "word order": "Orden de palabras", politeness: "Formalidad", spelling: "Escritura",
+  other: "Otros",
+};
 
 const state = {
   profile: null,
@@ -84,7 +93,7 @@ $("#switch-skip").addEventListener("click", () => {
 });
 $("#switch-report").addEventListener("click", () => {
   $("#switch-modal").classList.add("hidden");
-  showSessionSummary();       // pendingStart continues after "Done ✓"
+  showSessionSummary();       // pendingStart continues after "Listo ✓"
 });
 
 /* =============================================================== startup */
@@ -105,11 +114,18 @@ async function updateHealth() {
     const llmLabel = h.provider === "ollama"
       ? (h.model ? h.model.split(":")[0] : "—")
       : (h.provider_label || h.provider);
+    if (h.provider === "codex") {
+      $("#health").innerHTML = `${dot(h.llm_ready)} Suscripción de ChatGPT<br><span class="sub">GPT Live · voz en tiempo real</span>`;
+      $("#mic-btn").disabled = !h.whisper;
+      $("#mic-btn").title = h.whisper ? "Grabar un mensaje" : "Para hablar, usa Conversación por voz en Inicio";
+      return;
+    }
+    $("#mic-btn").disabled = false;
     $("#health").innerHTML =
       `${dot(h.llm_ready)} LLM ${llmLabel}<br>` +
-      `${dot(h.whisper)} whisper (voice in)<br>` +
-      `${dot(h.voicevox || h.aivis)} ${[h.aivis && "Aivis", h.voicevox && "VOICEVOX"].filter(Boolean).join(" + ") || "macOS voice"} (voice out)`;
-  } catch { $("#health").innerHTML = `<span class="bad">●</span> server offline`; }
+      `${dot(h.whisper)} whisper (entrada de voz)<br>` +
+      `${dot(h.voicevox || h.aivis)} ${[h.aivis && "Aivis", h.voicevox && "VOICEVOX"].filter(Boolean).join(" + ") || "voz de macOS"} (salida de voz)`;
+  } catch { $("#health").innerHTML = `<span class="bad">●</span> servidor sin conexión`; }
 }
 
 async function refreshDueBadge() {
@@ -128,24 +144,75 @@ function obShow(step) { // "ai" | "profile"
 
 async function startOnboarding() {
   $("#onboard-modal").classList.remove("hidden");
+  $("#ob-name").value = "Ado";
   try {
-    const h = await api.get("/api/health");
+    const [h, catalog] = await Promise.all([
+      api.get("/api/health"), api.get("/api/providers"),
+    ]);
+    const hasCodex = catalog.providers.some(provider => provider.id === "codex");
+    $("#ob-opt-codex").classList.toggle("hidden", !hasCodex);
     obShow(h.llm_ready ? "profile" : "ai"); // AI already working → skip straight to profile
-  } catch { obShow("profile"); }
+  } catch {
+    obShow("ai");
+  }
 }
 
 /* --- step 0: pick + set up the AI --- */
 let obPoll = null;
-function obPanel(name) { // "choice" | "local" | "cloud"
+function obPanel(name) { // "choice" | "local" | "cloud" | "codex"
   $("#ob-ai-choice").classList.toggle("hidden", name !== "choice");
   $("#ob-local").classList.toggle("hidden", name !== "local");
   $("#ob-cloud").classList.toggle("hidden", name !== "cloud");
+  $("#ob-codex").classList.toggle("hidden", name !== "codex");
   $("#ob-ai-back-row").classList.toggle("hidden", name === "choice");
   if (name !== "local" && obPoll) { clearInterval(obPoll); obPoll = null; }
 }
 $("#ob-opt-local").addEventListener("click", () => { obPanel("local"); obLocalCheck(); });
 $("#ob-opt-cloud").addEventListener("click", () => { obPanel("cloud"); obCloudInit(); });
+$("#ob-opt-codex").addEventListener("click", () => { obPanel("codex"); obCodexCheck(); });
 $("#ob-ai-back").addEventListener("click", () => obPanel("choice"));
+$("#ob-codex-check").addEventListener("click", obCodexCheck);
+
+function codexStatusMessage(status) {
+  if (status.ready) return "Tu cuenta de ChatGPT está conectada. Puedes continuar con tu suscripción.";
+  if (!status.installed) return "Codex no está instalado. Instálalo en este ordenador y ejecuta codex login.";
+  if (!status.logged_in) return "Falta iniciar sesión. Ejecuta codex login y elige tu cuenta de ChatGPT.";
+  return status.message || "Codex todavía no está disponible. Comprueba la conexión e inténtalo de nuevo.";
+}
+
+async function obCodexCheck() {
+  const statusEl = $("#ob-codex-status");
+  const continueButton = $("#ob-codex-save");
+  continueButton.disabled = true;
+  statusEl.textContent = "Comprobando tu conexión con Codex…";
+  try {
+    const status = await api.get("/api/codex/status");
+    statusEl.textContent = codexStatusMessage(status);
+    continueButton.disabled = !status.ready;
+  } catch {
+    statusEl.textContent = "No se pudo comprobar Codex. Pulsa «Comprobar de nuevo».";
+  }
+}
+
+$("#ob-codex-save").addEventListener("click", async () => {
+  const button = $("#ob-codex-save");
+  button.disabled = true;
+  try {
+    const status = await api.get("/api/codex/status");
+    if (!status.ready) {
+      $("#ob-codex-status").textContent = codexStatusMessage(status);
+      return;
+    }
+    const settings = await api.post("/api/settings", { provider: "codex" });
+    if (settings.error) throw new Error(settings.error);
+    state.settings = settings;
+    updateHealth();
+    obShow("profile");
+  } catch (error) {
+    $("#ob-codex-status").textContent = "No se pudo conectar: " + error.message;
+    button.disabled = false;
+  }
+});
 
 async function obLocalCheck() {
   const h = await api.get("/api/health");
@@ -166,8 +233,8 @@ async function obLocalCheck() {
   const hw = await api.get("/api/setup/hardware");
   const r = hw.recommended;
   $("#ob-hw-note").textContent =
-    `Your ${hw.system === "Darwin" ? "Mac" : "computer"} (${hw.cores} cores, ${hw.ram_gb ?? "?"} GB RAM) — ` +
-    `recommended model: ${r.model} (${r.size} download). ${r.reason}`;
+    `Tu ${hw.system === "Darwin" ? "Mac" : "ordenador"} (${hw.cores} núcleos, ${hw.ram_gb ?? "?"} GB RAM) — ` +
+    `modelo recomendado: ${r.model} (${r.size} de descarga). ${r.reason}`;
   $("#ob-model-dl").classList.remove("hidden");
   $("#ob-pull-btn").onclick = () => obPull(r.model);
 }
@@ -196,28 +263,28 @@ async function obPull(model) {
         if (d.total && d.completed != null) {
           const pct = Math.round(d.completed / d.total * 100);
           fill.style.width = pct + "%";
-          status.textContent = `Downloading — ${pct}%`;
+          status.textContent = `Descargando — ${pct}%`;
         } else if (d.status) status.textContent = d.status;
         if (d.status === "success") ok = true;
       }
     }
-    if (!ok) throw new Error("download did not finish — is Ollama still running?");
+    if (!ok) throw new Error("la descarga no ha terminado. Comprueba que Ollama sigue abierto.");
     fill.style.width = "100%";
-    status.textContent = "Done! Your tutor is ready.";
+    status.textContent = "Tu tutor está listo.";
     await api.post("/api/settings", { provider: "ollama", model });
     updateHealth();
     setTimeout(() => obShow("profile"), 800);
   } catch (e) {
-    status.textContent = "Download failed: " + e.message;
+    status.textContent = "Error al descargar: " + e.message;
     $("#ob-pull-btn").disabled = false;
   }
 }
 
 /* --- step 0, cloud path --- */
 const OB_KEY_HINTS = {
-  gemini: "Free tier available — create a key at aistudio.google.com/apikey",
-  openai: "Create a key at platform.openai.com/api-keys",
-  anthropic: "Create a key at console.anthropic.com",
+  gemini: "Hay un plan gratuito. Crea una clave en aistudio.google.com/apikey",
+  openai: "Crea una clave en platform.openai.com/api-keys",
+  anthropic: "Crea una clave en console.anthropic.com",
 };
 async function obCloudInit() {
   const cat = await api.get("/api/providers");
@@ -245,10 +312,22 @@ $("#ob-level").addEventListener("click", e => {
   btn.classList.add("active");
 });
 $("#ob-start").addEventListener("click", async () => {
-  const name = $("#ob-name").value.trim() || "friend";
-  const level = $("#ob-level .active")?.dataset.l || "N5";
+  const name = $("#ob-name").value.trim() || "Ado";
+  const level = $("#ob-level .active")?.dataset.l;
+  if (!level) {
+    $("#ob-profile-status").textContent = "Elige tu punto de partida. Si empiezas desde cero, selecciona N5.";
+    return;
+  }
   const interests = $("#ob-interests").value.trim();
-  state.profile = await api.put("/api/profile", { name, jlpt_level: level, interests });
+  const goals = $("#ob-goals").value.trim();
+  try {
+    const profile = await api.put("/api/profile", { name, jlpt_level: level, interests, goals });
+    if (profile.error) throw new Error(profile.error);
+    state.profile = profile;
+  } catch (error) {
+    $("#ob-profile-status").textContent = "No se pudo guardar tu perfil: " + error.message;
+    return;
+  }
   $("#onboard-modal").classList.add("hidden");
   loadHome();
 });
@@ -262,13 +341,13 @@ async function loadHome() {
 
   api.get("/api/dashboard").then(d => {
     $("#home-stats").innerHTML =
-      `<div class="chip">${icon("flame", "accent")} ${d.streak} day streak</div>` +
+      `<div class="chip">${icon("flame", "accent")} ${d.streak} días de racha</div>` +
       `<div class="chip">${icon("timer")} ${d.total_minutes} min</div>` +
-      `<div class="chip">${icon("book-open")} ${d.words_saved} words</div>`;
+      `<div class="chip">${icon("book-open")} ${d.words_saved} palabras</div>`;
     const banner = $("#srs-banner");
     if (d.srs_due > 0) {
       banner.classList.remove("hidden");
-      banner.innerHTML = `${icon("layers")} <b>${d.srs_due} word${d.srs_due > 1 ? "s" : ""}</b> ready for review — keep them fresh!`;
+      banner.innerHTML = `${icon("layers")} <b>${d.srs_due} palabra${d.srs_due > 1 ? "s" : ""}</b> para repasar. Dedícales unos minutos.`;
       banner.onclick = () => show("review");
     } else banner.classList.add("hidden");
   });
@@ -316,7 +395,7 @@ $("#st-start").addEventListener("click", () => {
 $("#cr-cancel").addEventListener("click", () => $("#custom-modal").classList.add("hidden"));
 $("#cr-start").addEventListener("click", () => {
   const custom = {
-    title: $("#cr-title").value.trim() || "Custom Roleplay",
+    title: $("#cr-title").value.trim() || "Tu propia escena",
     ai_role: $("#cr-ai").value.trim(), user_role: $("#cr-user").value.trim(),
     setting: $("#cr-setting").value.trim(), description: $("#cr-desc").value.trim(),
   };
@@ -331,8 +410,8 @@ async function startSession(mode, opts) {
   state.session = { ...res, mode };
   if (mode === "story") return openReader(res);   // stories get the book UI
   const scen = res.scenario;
-  $("#chat-title").textContent = scen ? `${scen.title}` : "Free Chat 💬";
-  $("#chat-sub").textContent = scen ? (scen.setting || scen.description || "") : "Talk about anything!";
+  $("#chat-title").textContent = scen ? `${scen.title}` : "Conversación libre 💬";
+  $("#chat-sub").textContent = scen ? (scen.setting || scen.description || "") : "Habla de lo que te apetezca.";
   $("#messages").innerHTML = "";
   $("#hints").classList.add("hidden");
   $("#tgl-furigana").checked = state.settings.furigana !== false;
@@ -353,7 +432,7 @@ function applyReadingToggles() {
 function msgEl(role) {
   const div = document.createElement("div");
   div.className = `msg ${role}`;
-  div.innerHTML = `<div class="who">${role === "ai" ? "カイワ Kaiwa" : "You"}</div><div class="bubble"></div>`;
+  div.innerHTML = `<div class="who">${role === "ai" ? "カイワ Kaiwa" : "Tú"}</div><div class="bubble"></div>`;
   $("#messages").appendChild(div);
   return div;
 }
@@ -440,9 +519,9 @@ function finishAiMessage(aiDiv, ev, raw) {
   const actions = document.createElement("div");
   actions.className = "msg-actions";
   actions.innerHTML = `
-    <button class="act-play" title="Play">${icon("volume-2")} Play</button>
-    <button class="act-slow" title="Play slowly">${icon("turtle")} Slow</button>
-    <button class="act-trans" title="Translate">${icon("languages")} Translate</button>`;
+    <button class="act-play" title="Escuchar">${icon("volume-2")} Escuchar</button>
+    <button class="act-slow" title="Escuchar despacio">${icon("turtle")} Despacio</button>
+    <button class="act-trans" title="Traducir">${icon("languages")} Traducir</button>`;
   aiDiv.appendChild(actions);
 
   $(".act-play", actions).addEventListener("click", () => playTTS(raw, 1.0));
@@ -462,7 +541,7 @@ async function translateMsg(mid, aiDiv) {
   if (!line.textContent) {
     line.textContent = "…";
     const r = await api.post("/api/translate", { message_id: mid });
-    line.textContent = r.translation || "(translation failed)";
+    line.textContent = r.error || r.translation || "(no se pudo traducir)";
   }
   scrollDown();
 }
@@ -479,10 +558,11 @@ function playTTS(text, speed) {
 async function queueCorrection(mid, userDiv) {
   try {
     const c = await api.post("/api/correct", { message_id: mid });
+    if (c.error) throw new Error(c.error);
     const div = document.createElement("div");
     if (!c.has_errors) {
       div.className = "correction good";
-      div.innerHTML = icon("check") + " " + esc(c.praise || "Perfect!");
+      div.innerHTML = icon("check") + " " + esc(c.praise || "¡Bien!");
     } else {
       div.className = "correction fix";
       div.innerHTML =
@@ -494,7 +574,12 @@ async function queueCorrection(mid, userDiv) {
     }
     userDiv.appendChild(div);
     scrollDown();
-  } catch { /* silent */ }
+  } catch (error) {
+    const div = document.createElement("div");
+    div.className = "correction";
+    div.textContent = `No se pudo revisar la frase: ${error.message}`;
+    userDiv.appendChild(div);
+  }
 }
 
 /* hints */
@@ -503,13 +588,13 @@ $("#hint-btn").addEventListener("click", async () => {
   const h = $("#hints");
   if (!h.classList.contains("hidden")) { h.classList.add("hidden"); return; }  // toggle off
   h.classList.remove("hidden");
-  h.innerHTML = `<div class="hint-card">${icon("lightbulb")} thinking…</div>`;
+  h.innerHTML = `<div class="hint-card">${icon("lightbulb")} Preparando ideas…</div>`;
   const r = await api.post("/api/hint", { session_id: state.session.session_id });
   h.innerHTML = ((r.suggestions || []).map(s =>
     `<div class="hint-card" data-t="${esc(s.japanese)}">${esc(s.japanese)}` +
     `<span class="en">${esc(s.romaji || "")} — ${esc(s.english || "")}</span></div>`).join("")
-    || `<div class="hint-card">Couldn't think of hints, sorry!</div>`) +
-    `<button class="hint-close" title="Close hints">${icon("x")}</button>`;
+    || `<div class="hint-card">No se pudieron generar pistas. Inténtalo de nuevo.</div>`) +
+    `<button class="hint-close" title="Cerrar pistas">${icon("x")}</button>`;
   $(".hint-close", h).addEventListener("click", () => h.classList.add("hidden"));
   $$(".hint-card", h).forEach(c => c.addEventListener("click", () => {
     if (c.dataset.t) { $("#chat-input").value = c.dataset.t; h.classList.add("hidden"); $("#chat-input").focus(); }
@@ -532,27 +617,37 @@ $("#end-session").addEventListener("click", showSessionSummary);
 async function showSessionSummary() {
   if (!state.session) return;
   const inner = $("#summary-inner");
-  inner.innerHTML = `<h2>${icon("clipboard-list")} Session Report</h2><p class='sub'>Kaiwa is writing your report…</p>`;
+  inner.innerHTML = `<h2>${icon("clipboard-list")} Informe de sesión</h2><p class='sub'>Kaiwa está preparando tu informe…</p>`;
   $("#summary-modal").classList.remove("hidden");
-  const s = await api.post(`/api/sessions/${state.session.session_id}/end`);
+  let s;
+  try {
+    s = await api.post(`/api/sessions/${state.session.session_id}/end`);
+    if (s.error) throw new Error(s.error);
+  } catch (error) {
+    inner.innerHTML = `<h2>El informe no está disponible</h2><p>${esc(error.message)}</p>
+      <div class="modal-btns"><button class="btn" id="sum-back">Cerrar</button><button class="btn primary" id="sum-retry">Reintentar</button></div>`;
+    $("#sum-back").onclick = () => $("#summary-modal").classList.add("hidden");
+    $("#sum-retry").onclick = showSessionSummary;
+    return;
+  }
   inner.innerHTML = `
-    <h2>${icon("clipboard-list")} Session Report</h2>
+    <h2>${icon("clipboard-list")} Informe de sesión</h2>
     <div class="summary-stats">
-      <div class="chip">${icon("message-circle")} ${s.stats?.turns ?? 0} replies</div>
-      <div class="chip">${icon("pencil")} ${s.stats?.corrections ?? 0} corrections</div>
+      <div class="chip">${icon("message-circle")} ${s.stats?.turns ?? 0} respuestas</div>
+      <div class="chip">${icon("pencil")} ${s.stats?.corrections ?? 0} correcciones</div>
     </div>
     <p>${esc(s.summary || "")}</p>
-    ${s.strengths?.length ? `<h3 class="sect">${icon("trophy")} Strengths</h3><ul class="sum-list">${s.strengths.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
-    ${s.areas_to_improve?.length ? `<h3 class="sect">${icon("target")} Work on next</h3><ul class="sum-list">${s.areas_to_improve.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
-    ${s.new_words?.length ? `<h3 class="sect">${icon("sparkles")} Words worth saving</h3>` + s.new_words.map((w, i) =>
+    ${s.strengths?.length ? `<h3 class="sect">${icon("trophy")} Lo que haces bien</h3><ul class="sum-list">${s.strengths.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+    ${s.areas_to_improve?.length ? `<h3 class="sect">${icon("target")} Para la próxima sesión</h3><ul class="sum-list">${s.areas_to_improve.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+    ${s.new_words?.length ? `<h3 class="sect">${icon("sparkles")} Palabras que merece la pena guardar</h3>` + s.new_words.map((w, i) =>
       `<div class="new-word-row"><span class="w">${esc(w.word || "")}</span>
        <span class="r">${esc(w.reading || "")}</span><span class="m">${esc(w.meaning || "")}</span>
-       <button data-i="${i}">${icon("plus")} Save</button></div>`).join("") : ""}
-    <div class="modal-btns"><button class="btn primary" id="sum-close">Done ✓</button></div>`;
+       <button data-i="${i}">${icon("plus")} Guardar</button></div>`).join("") : ""}
+    <div class="modal-btns"><button class="btn primary" id="sum-close">Listo ✓</button></div>`;
   $$(".new-word-row button", inner).forEach(btn => btn.addEventListener("click", async () => {
     const w = s.new_words[+btn.dataset.i];
     await api.post("/api/vocab", w);
-    btn.textContent = "✓ Saved"; btn.disabled = true;
+    btn.textContent = "✓ Guardada"; btn.disabled = true;
     refreshDueBadge();
   }));
   $("#sum-close").addEventListener("click", () => {
@@ -583,9 +678,9 @@ const TYPING = `<span class="typing"><span></span><span></span><span></span></sp
 
 function openReader(res) {
   const scen = res.scenario || {};
-  $("#reader-title").textContent = scen.title || "Story Time";
+  $("#reader-title").textContent = scen.title || "Lectura en japonés";
   $("#reader-sub").textContent =
-    ({ hiragana: "ひらがな only", katakana: "カタカナ practice", stretch: "kanji stretch" })[scen.script] || "";
+    ({ hiragana: "Solo ひらがな", katakana: "Practicar カタカナ", stretch: "Más kanji" })[scen.script] || "";
   reader.pages = []; reader.cur = 0;
   $("#reader-pages").innerHTML = "";
   $("#reader-nav").classList.add("hidden");
@@ -616,13 +711,13 @@ function addReaderPage(type) {
       <div class="story-body">${TYPING}</div>
       <div class="romaji-line"></div><div class="trans-line hidden"></div>
       <div class="msg-actions reader-actions"></div>
-      <div class="reader-cta hidden"><button class="btn primary">Start the quiz ➤</button></div>`;
+      <div class="reader-cta hidden"><button class="btn primary">Comenzar preguntas ➤</button></div>`;
   } else {
     // story is page 0; quiz pages 1-3 are the questions, 4 is the wrap-up
     const n = reader.pages.length;
-    const label = n <= 3 ? `Question ${n} <span class="of">/ 3</span>`
-      : n === 4 ? `${icon("party-popper")} Story complete!`
-      : `${icon("message-circle")} Chat`;
+    const label = n <= 3 ? `Pregunta ${n} <span class="of">/ 3</span>`
+      : n === 4 ? `${icon("party-popper")} ¡Lectura completada!`
+      : `${icon("message-circle")} Conversación`;
     div.innerHTML = `
       <div class="quiz-label">${label}</div>
       <div class="quiz-body">${TYPING}</div>
@@ -630,8 +725,8 @@ function addReaderPage(type) {
       <div class="msg-actions reader-actions"></div>
       <div class="quiz-after"></div>
       <div class="quiz-answer hidden">
-        <input type="text" placeholder="${n <= 3 ? "Answer in Japanese…" : "Reply…"}" autocomplete="off">
-        <button class="icon-btn big send" title="Send">${icon("send-horizontal")}</button>
+        <input type="text" placeholder="${n <= 3 ? "Responde en japonés…" : "Responde…"}" autocomplete="off">
+        <button class="icon-btn big send" title="Enviar">${icon("send-horizontal")}</button>
       </div>`;
   }
   $("#reader-pages").appendChild(div);
@@ -651,7 +746,7 @@ function updateReaderNav() {
   const dots = $("#rd-dots");
   dots.innerHTML = reader.pages.map((p, j) =>
     `<button class="rd-dot ${j === reader.cur ? "on" : ""}" data-i="${j}" ` +
-    `title="${j === 0 ? "Story" : "Page " + (j + 1)}">${j === 0 ? icon("book-open") : j}</button>`).join("");
+    `title="${j === 0 ? "Historia" : "Página " + (j + 1)}">${j === 0 ? icon("book-open") : j}</button>`).join("");
   $$(".rd-dot", dots).forEach(b => b.addEventListener("click", () => readerGo(+b.dataset.i)));
   $("#rd-prev").disabled = reader.cur === 0;
   $("#rd-next").disabled = reader.cur >= reader.pages.length - 1;
@@ -705,9 +800,9 @@ function finishReaderPage(page, ev, raw) {
 
   const actions = $(".reader-actions", page);
   actions.innerHTML = `
-    <button class="act-play" title="Play">${icon("volume-2")} Play</button>
-    <button class="act-slow" title="Play slowly">${icon("turtle")} Slow</button>
-    <button class="act-trans" title="Translate">${icon("languages")} Translate</button>`;
+    <button class="act-play" title="Escuchar">${icon("volume-2")} Escuchar</button>
+    <button class="act-slow" title="Escuchar despacio">${icon("turtle")} Despacio</button>
+    <button class="act-trans" title="Traducir">${icon("languages")} Traducir</button>`;
   $(".act-play", actions).addEventListener("click", () => playTTS(raw, 1.0));
   $(".act-slow", actions).addEventListener("click", () => playTTS(raw, 0.7));
   $(".act-trans", actions).addEventListener("click", () => translateMsg(ev.message_id, page));
@@ -724,7 +819,7 @@ function finishReaderPage(page, ev, raw) {
   } else {
     if (reader.pages.indexOf(page) === 4) {     // wrap-up page: offer the report
       const after = $(".quiz-after", page);
-      after.innerHTML = `<button class="btn primary rd-finish">${icon("clipboard-list")} Finish &amp; get report</button>`;
+      after.innerHTML = `<button class="btn primary rd-finish">${icon("clipboard-list")} Terminar y ver informe</button>`;
       $(".rd-finish", after).addEventListener("click", showSessionSummary);
     }
     wireQuizAnswer(page);
@@ -743,7 +838,7 @@ function wireQuizAnswer(page) {
     box.classList.add("hidden");
     const chip = document.createElement("div");   // the answer stays on its
     chip.className = "your-answer";               // question page for review
-    chip.innerHTML = `<span class="ya-label">Your answer</span>${esc(t)}`;
+    chip.innerHTML = `<span class="ya-label">Tu respuesta</span>${esc(t)}`;
     $(".quiz-after", page).appendChild(chip);
     readerStream(t, addReaderPage("quiz"), chip); // corrections land on the chip
   };
@@ -759,7 +854,7 @@ async function wordPopup(e, word, sentence) {
   const x = Math.min(e.clientX, window.innerWidth - 310);
   const y = Math.min(e.clientY + 12, window.innerHeight - 260);
   inner.style.left = x + "px"; inner.style.top = y + "px";
-  inner.innerHTML = `<span class="w">${esc(word)}</span><div class="loading">looking up…</div>`;
+  inner.innerHTML = `<span class="w">${esc(word)}</span><div class="loading">Buscando…</div>`;
   const info = await api.post("/api/word", { word, sentence });
   inner.innerHTML = `
     <span class="w">${esc(word)}</span><span class="r">${esc(info.reading || "")}</span>
@@ -769,13 +864,13 @@ async function wordPopup(e, word, sentence) {
     ${info.example ? `<div class="ex">${esc(info.example)}<br><i>${esc(info.example_en || "")}</i></div>` : ""}
     <div class="pop-btns">
       <button class="btn small" id="pop-play">${icon("volume-2")}</button>
-      <button class="btn small primary" id="pop-save">${icon("bookmark-plus")} Save word</button>
+      <button class="btn small primary" id="pop-save">${icon("bookmark-plus")} Guardar palabra</button>
     </div>`;
   $("#pop-play").addEventListener("click", ev => { ev.stopPropagation(); playTTS(word, 1.0); });
   $("#pop-save").addEventListener("click", async ev => {
     ev.stopPropagation();
     await api.post("/api/vocab", info);
-    $("#pop-save").textContent = "✓ Saved"; $("#pop-save").disabled = true;
+    $("#pop-save").textContent = "✓ Guardada"; $("#pop-save").disabled = true;
     refreshDueBadge();
   });
 }
@@ -813,7 +908,7 @@ $("#mic-btn").addEventListener("click", async () => {
     src.connect(proc); proc.connect(ctx.destination);
     rec = { ctx, proc, stream, chunks, rate: ctx.sampleRate };
     btn.classList.add("recording"); btn.innerHTML = icon("square");
-  } catch { alert("Microphone access denied."); }
+  } catch { alert("No se pudo acceder al micrófono. Comprueba el permiso del navegador."); }
 });
 
 function encodeWav(chunks, inRate) {
@@ -862,7 +957,7 @@ $("#call-mute").addEventListener("click", () => {
   $("#call-mute").classList.toggle("muted-on", call.muted);
   if (call.listening) {
     call.vad = freshVad();
-    callStatus(call.muted ? "muted" : "listening", call.muted ? "Muted" : "Your turn — just speak");
+    callStatus(call.muted ? "muted" : "listening", call.muted ? "Silenciado" : "Tu turno. Habla cuando quieras.");
   }
 });
 $("#call-cc").addEventListener("click", () => {
@@ -872,6 +967,7 @@ $("#call-cc").addEventListener("click", () => {
 });
 
 async function startCall() {
+  if (state.settings.provider === "codex") return startCodexCall();
   if (state.session) return guardActiveSession(startCall);
   const res = await api.post("/api/sessions", { mode: "call" });
   state.session = { ...res, mode: "call" };
@@ -894,11 +990,12 @@ async function startCall() {
   call.audio.src = SILENT_WAV;                 // unlock audio inside the tap (iOS)
   call.audio.play().catch(() => {});
   await ensureMic();                           // ask permission inside the tap too
-  callStatus("thinking", "Calling…");
+  callStatus("thinking", "Conectando…");
   callTurn("");                                // Kaiwa opens the call
 }
 
 async function endCall() {
+  if (codexVoiceActive()) return endCodexCall();
   call.active = false;
   clearInterval(call.timer);
   call.queue = []; call.playing = false; call.listening = false;
@@ -931,7 +1028,7 @@ async function callTurn(text) {
   if (!call.active) return;
   call.streamDone = false;
   call.interrupted = false;
-  callStatus("thinking", "Kaiwa is thinking…");
+  callStatus("thinking", "Kaiwa está pensando…");
   let pending = "";
   try {
     const resp = await fetch("/api/chat", {
@@ -967,7 +1064,7 @@ async function callTurn(text) {
   } catch (e) {
     if (!call.active) return;
     call.streamDone = true;
-    callStatus("", "Hiccup: " + e.message);
+    callStatus("", "Se ha interrumpido: " + e.message);
     startListening(true);
     return;
   }
@@ -1007,7 +1104,7 @@ async function pumpSpeech() {
     return;
   }
   call.playing = true;
-  callStatus("speaking", "Kaiwa is speaking — tap the circle to interrupt");
+  callStatus("speaking", "Kaiwa está hablando. Pulsa el círculo para interrumpir.");
   showCaption(item.text, false);
   const blob = await item.blob;
   if (!call.active || call.interrupted) { call.playing = false; return; }
@@ -1049,12 +1146,12 @@ const freshVad = () => ({ started: false, chunks: [], preroll: [], voiced: 0, si
 
 async function startListening(afterError) {
   if (!call.active || call.listening) return;
-  if (!(await ensureMic())) { callStatus("", "Mic blocked — check browser permissions"); return; }
+  if (!(await ensureMic())) { callStatus("", "Micrófono bloqueado. Comprueba los permisos del navegador."); return; }
   if (call.mic.ctx.state === "suspended") call.mic.ctx.resume();
   call.vad = freshVad();
   call.listening = true;
-  if (call.muted) callStatus("muted", "Muted");
-  else if (!afterError) callStatus("listening", "Your turn — just speak");
+  if (call.muted) callStatus("muted", "Silenciado");
+  else if (!afterError) callStatus("listening", "Tu turno. Habla cuando quieras.");
 }
 
 function vadProcess(buf) {
@@ -1071,7 +1168,7 @@ function vadProcess(buf) {
     if (v.voiced >= 180) {
       v.started = true;
       v.chunks = v.preroll.splice(0);
-      callStatus("listening live", "Listening…");
+      callStatus("listening live", "Escuchando…");
     }
   } else {
     v.chunks.push(buf);
@@ -1084,7 +1181,7 @@ async function finishUtterance() {
   const v = call.vad;
   call.listening = false;
   if (v.chunks.length * (4096 / call.mic.rate) * 1000 < 400) { startListening(); return; }
-  callStatus("thinking", "Got it…");
+  callStatus("thinking", "Procesando…");
   const wav = encodeWav(v.chunks, call.mic.rate);
   let text = "";
   try {
@@ -1096,7 +1193,7 @@ async function finishUtterance() {
   if (!call.active) return;
   if (!text) {
     startListening(true);
-    callStatus("listening", "Didn't catch that — try again");
+    callStatus("listening", "No te he entendido. Prueba otra vez.");
     return;
   }
   showCaption(text, true);
@@ -1115,7 +1212,7 @@ async function loadReview() {
 // Mirrors db.srs_review() so each grade button can show when the word would
 // come back (like Anki's "10m / 1d / 3d" labels).
 function srsPreview(w) {
-  const fmt = d => d < 30 ? `${Math.round(d)}d` : d < 365 ? `${Math.round(d / 30)}mo` : `${(d / 365).toFixed(1)}y`;
+  const fmt = d => d < 30 ? `${Math.round(d)} días` : d < 365 ? `${Math.round(d / 30)} meses` : `${(d / 365).toFixed(1)} años`;
   const next = g => {
     if (g === 0) return "10 min";
     const q = { 1: 3, 2: 4, 3: 5 }[g];
@@ -1136,8 +1233,8 @@ function renderReviewCard() {
   const area = $("#review-area");
   refreshDueBadge();
   if (reviewIdx >= reviewQueue.length) {
-    area.innerHTML = `<div class="review-done">${icon("party-popper", "big-icon")}<br>All caught up!<br>
-      <small>Save words during chats and they'll appear here for review.</small></div>`;
+    area.innerHTML = `<div class="review-done">${icon("party-popper", "big-icon")}<br>¡Repaso al día!<br>
+      <small>Guarda palabras durante tus conversaciones para repasarlas aquí.</small></div>`;
     return;
   }
   const w = reviewQueue[reviewIdx];
@@ -1149,19 +1246,19 @@ function renderReviewCard() {
       <div class="reading hidden">${esc(w.reading || "")} <i style="font-size:.8em">${esc(w.romaji || "")}</i></div>
       <div class="meaning hidden">${esc(w.meaning || "")}</div>
       ${w.example ? `<div class="example hidden">${esc(w.example)}<br><i>${esc(w.example_en || "")}</i></div>` : ""}
-      <p class="sub" id="fc-hint" style="margin-top:16px">tap to reveal</p>
+      <p class="sub" id="fc-hint" style="margin-top:16px">pulsa para ver la respuesta</p>
     </div>
     <div class="hidden" id="grades">
-      <p class="sub grade-hint">How well did you remember?</p>
+      <p class="sub grade-hint">¿Cuánto te ha costado recordarla?</p>
       <div class="grade-row">
-        <button class="g-again" title="Forgot it — the word starts over and comes right back">Again<span>${iv[0]}</span></button>
-        <button class="g-hard" title="Got it, but it was a struggle — small step forward">Hard<span>${iv[1]}</span></button>
-        <button class="g-good" title="Remembered it after a moment — normal step forward">Good<span>${iv[2]}</span></button>
-        <button class="g-easy" title="Knew it instantly — big step forward">Easy<span>${iv[3]}</span></button>
+        <button class="g-again" title="No la recordaba. Volverá dentro de poco.">Otra vez<span>${iv[0]}</span></button>
+        <button class="g-hard" title="La recordaba con mucho esfuerzo. Avance pequeño.">Difícil<span>${iv[1]}</span></button>
+        <button class="g-good" title="La recordaba tras pensarlo un momento.">Bien<span>${iv[2]}</span></button>
+        <button class="g-easy" title="La recordaba al instante. Avance mayor.">Fácil<span>${iv[3]}</span></button>
       </div>
-      <p class="sub grade-hint">the time under each button is when you'll see the word again</p>
+      <p class="sub grade-hint">El tiempo indica cuándo volverás a ver esta palabra.</p>
     </div>
-    <div style="text-align:center;margin-top:12px"><button class="btn small" id="fc-play">${icon("volume-2")} Listen</button></div>`;
+    <div style="text-align:center;margin-top:12px"><button class="btn small" id="fc-play">${icon("volume-2")} Escuchar</button></div>`;
   $("#fc-play").addEventListener("click", () => playTTS(w.word, 1.0));
   $("#fc").addEventListener("click", () => {
     $$("#fc .hidden").forEach(el => el.classList.remove("hidden"));
@@ -1190,7 +1287,7 @@ async function loadVocab() {
 function renderVocab() {
   const list = state.vocab || [];
   if (!list.length) {
-    $("#vocab-list").innerHTML = `<p class="sub">No words yet — tap any word in a chat to save it!</p>`;
+    $("#vocab-list").innerHTML = `<p class="sub">Todavía no tienes palabras. Pulsa una palabra en una conversación para guardarla.</p>`;
     return;
   }
   const slice = list.slice(0, state.vocabShown);
@@ -1199,10 +1296,10 @@ function renderVocab() {
     <div class="vocab-item" data-id="${v.id}">
       <div><div class="w">${esc(v.word)}</div><div class="r">${esc(v.reading || "")}</div></div>
       <div class="m">${esc(v.meaning || "")}${v.example ? `<div class="ex">${esc(v.example)}</div>` : ""}</div>
-      <button class="v-play" title="Listen">${icon("volume-2")}</button>
-      <button class="v-del" title="Delete">${icon("trash-2")}</button>
+      <button class="v-play" title="Escuchar">${icon("volume-2")}</button>
+      <button class="v-del" title="Eliminar">${icon("trash-2")}</button>
     </div>`).join("") +
-    (more ? `<button class="btn small show-more" id="vocab-more">Show more (${more})</button>` : "");
+    (more ? `<button class="btn small show-more" id="vocab-more">Ver más (${more})</button>` : "");
   $$(".vocab-item").forEach(item => {
     const id = item.dataset.id;
     const word = $(".w", item).textContent;
@@ -1222,49 +1319,49 @@ async function loadProgress() {
   const d = await api.get("/api/dashboard");
   const stat = (n, l) => `<div class="stat-card"><div class="num">${n}</div><div class="lbl">${l}</div></div>`;
   $("#progress-stats").innerHTML =
-    stat(`${d.streak}${icon("flame", "accent")}`, "day streak") + stat(d.total_minutes, "minutes practiced") +
-    stat(d.sessions_count, "sessions") + stat(d.messages_spoken, "things you said") +
-    stat(d.words_saved, "words saved") + stat(d.mistakes_logged, "mistakes caught");
+    stat(`${d.streak}${icon("flame", "accent")}`, "días de racha") + stat(d.total_minutes, "minutos practicados") +
+    stat(d.sessions_count, "sesiones") + stat(d.messages_spoken, "respuestas") +
+    stat(d.words_saved, "palabras guardadas") + stat(d.mistakes_logged, "correcciones");
   state.recentSessions = d.recent_sessions;
   state.sessShown = SESS_PAGE;
   renderRecentSessions();
   const max = Math.max(1, ...d.mistake_categories.map(c => c.n));
   $("#mistake-cats").innerHTML = d.mistake_categories.length ? d.mistake_categories.map(c => `
-    <div class="mcat"><span class="lbl">${esc(c.category || "other")}</span>
+    <div class="mcat"><span class="lbl">${esc(CORRECTION_LABELS[c.category] || c.category || "Otros")}</span>
     <div class="bar" style="width:${(c.n / max) * 260}px"></div><span class="n">${c.n}</span></div>`).join("")
-    : `<p class="sub">No mistakes logged yet. (That's either very good or very quiet.)</p>`;
+    : `<p class="sub">Los patrones de tus correcciones aparecerán aquí después de practicar.</p>`;
 }
 
 const SESS_PAGE = 8;
 function renderRecentSessions() {
   const list = state.recentSessions || [];
   if (!list.length) {
-    $("#recent-sessions").innerHTML = `<p class="sub">No sessions yet — start one from Home!</p>`;
+    $("#recent-sessions").innerHTML = `<p class="sub">Todavía no hay sesiones. Empieza una desde Inicio.</p>`;
     return;
   }
   const slice = list.slice(0, state.sessShown);   // slice index == index into state.recentSessions
   const more = list.length - slice.length;
   $("#recent-sessions").innerHTML = slice.map((s, i) => `
     <div class="session-item expandable" data-i="${i}">
-      <div class="head"><span>${esc(s.title)} <small>(${s.mode.replace("_", " ")})</small></span>
+      <div class="head"><span>${esc(s.title)} <small>(${esc(MODE_LABELS[s.mode] || s.mode)})</small></span>
       <span class="when">${new Date(s.started_at * 1000).toLocaleDateString()} · ${s.minutes} min <span class="chev">▾</span></span></div>
       ${s.summary?.summary ? `<div class="summ">${esc(s.summary.summary)}</div>` : ""}
       <div class="sess-detail hidden">${sessionDetailHTML(s)}
-        <button class="btn small sess-pdf" data-i="${i}">${icon("clipboard-list")} Save as PDF</button>
+        <button class="btn small sess-pdf" data-i="${i}">${icon("clipboard-list")} Guardar como PDF</button>
       </div>
     </div>`).join("") +
-    (more ? `<button class="btn small show-more" id="sess-more">Show more (${more})</button>` : "");
+    (more ? `<button class="btn small show-more" id="sess-more">Ver más (${more})</button>` : "");
 }
 
 function sessionDetailHTML(s) {
   const sum = s.summary || {};
   let h = "";
-  if (sum.stats) h += `<p class="sub">${sum.stats.turns ?? "?"} turns · ${sum.stats.corrections ?? 0} corrections</p>`;
-  if (sum.strengths?.length) h += `<h4>Strengths</h4><ul>${sum.strengths.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
-  if (sum.areas_to_improve?.length) h += `<h4>To improve</h4><ul>${sum.areas_to_improve.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
-  if (sum.new_words?.length) h += `<h4>New words</h4><ul>${sum.new_words.map(w =>
+  if (sum.stats) h += `<p class="sub">${sum.stats.turns ?? "?"} turnos · ${sum.stats.corrections ?? 0} correcciones</p>`;
+  if (sum.strengths?.length) h += `<h4>Lo que haces bien</h4><ul>${sum.strengths.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  if (sum.areas_to_improve?.length) h += `<h4>Para mejorar</h4><ul>${sum.areas_to_improve.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  if (sum.new_words?.length) h += `<h4>Palabras nuevas</h4><ul>${sum.new_words.map(w =>
     `<li><b>${esc(w.word || "")}</b>${w.reading && w.reading !== w.word ? `（${esc(w.reading)}）` : ""} — ${esc(w.meaning || "")}</li>`).join("")}</ul>`;
-  return h || `<p class="sub">No detailed report was saved for this session.</p>`;
+  return h || `<p class="sub">Esta sesión no tiene un informe detallado.</p>`;
 }
 
 $("#recent-sessions").addEventListener("click", e => {
@@ -1286,12 +1383,12 @@ $("#recent-sessions").addEventListener("click", e => {
 function printSessionReport(s) {
   const sum = s.summary || {};
   $("#print-report").innerHTML = `
-    <h1>Kaiwa 会話 — Session Report</h1>
-    <p class="meta">${esc(s.title)} (${s.mode.replace("_", " ")}) ·
+    <h1>Kaiwa 会話 — Informe de sesión</h1>
+    <p class="meta">${esc(s.title)} (${esc(MODE_LABELS[s.mode] || s.mode)}) ·
       ${new Date(s.started_at * 1000).toLocaleString()} · ${s.minutes} min</p>
     ${sum.summary ? `<p>${esc(sum.summary)}</p>` : ""}
     ${sessionDetailHTML(s)}`;
-  window.print(); // user picks "Save as PDF" in the dialog
+  window.print(); // user picks "Guardar como PDF" in the dialog
 }
 
 /* ============================================================== settings */
@@ -1330,8 +1427,8 @@ async function renderBackupStatus() {
   if (!b) return;
   $("#set-backup-freq").value = b.freq;
   $("#backup-status").textContent =
-    `Backups go to ${b.dir}` +
-    (b.last ? ` — last backup: ${new Date(b.last * 1000).toLocaleString()}` : " — no backup yet");
+    `Las copias se guardan en ${b.dir}` +
+    (b.last ? ` — última copia: ${new Date(b.last * 1000).toLocaleString()}` : " — todavía no hay copias");
 }
 $("#backup-now").addEventListener("click", async () => {
   const r = await api.post("/api/backup/now", {});
@@ -1342,7 +1439,7 @@ $("#import-btn").addEventListener("click", () => $("#import-file").click());
 $("#import-file").addEventListener("change", async () => {
   const f = $("#import-file").files[0];
   if (!f) return;
-  if (!confirm("Importing replaces ALL current data (a safety copy is kept). Continue?")) return;
+  if (!confirm("La importación reemplazará todos tus datos actuales. Se conservará una copia de seguridad. ¿Continuar?")) return;
   const fd = new FormData();
   fd.append("file", f);
   const resp = await fetch("/api/backup/import", { method: "POST", body: fd });
@@ -1351,8 +1448,8 @@ $("#import-file").addEventListener("change", async () => {
   location.reload(); // everything (profile, words, streak) just changed
 });
 $("#reset-data").addEventListener("click", async () => {
-  if (!confirm("Delete ALL data — profile, saved words, streak, and history?")) return;
-  if (!confirm("Really sure? This wipes everything back to a fresh install.\n(A safety copy is kept next to the database.)")) return;
+  if (!confirm("¿Borrar todos los datos: perfil, palabras, racha e historial?")) return;
+  if (!confirm("¿Confirmas que quieres empezar de cero?\n(Se guardará una copia junto a la base de datos.)")) return;
   const r = await api.post("/api/reset", {});
   if (r.error) { $("#backup-status").textContent = r.error; return; }
   location.reload(); // fresh db → onboarding starts over
@@ -1361,29 +1458,29 @@ $("#reset-data").addEventListener("click", async () => {
 async function renderPhoneSetup() {
   const box = $("#phone-setup");
   const t = await api.get("/api/setup/phone").catch(() => null);
-  if (!t) { box.innerHTML = `<p class="sub">Couldn't check phone status.</p>`; return; }
+  if (!t) { box.innerHTML = `<p class="sub">No se pudo comprobar la conexión para el móvil.</p>`; return; }
   if (t.url) {
     const qr = qrcode(0, "M");
     qr.addData(t.url);
     qr.make();
     box.innerHTML = `
-      <p class="sub">Install <b>Tailscale</b> on your phone, sign in with the <b>same account</b> as this computer, then scan:</p>
+      <p class="sub">Arranca Kaiwa con <code>./run.sh --phone</code> para activar el enlace. Instala <b>Tailscale</b> en el móvil, inicia sesión con la <b>misma cuenta</b> y escanea el código:</p>
       <div class="qr-wrap">${qr.createSvgTag({ cellSize: 4, margin: 2 })}</div>
       <p class="sub"><a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.url)}</a></p>
-      <p class="sub">Add it to your home screen for an app-like experience.</p>`;
+      <p class="sub">Añádelo a tu pantalla de inicio para abrirlo como una app.</p>`;
   } else if (t.installed) {
     box.innerHTML = `
-      <p class="sub">Tailscale is installed but not connected.</p>
-      <p class="sub">1. Open the Tailscale app on this computer and sign in.<br>
-      2. Restart Kaiwa (run.sh) so the secure phone link starts.<br>
-      3. Come back here for your QR code.</p>`;
+      <p class="sub">Tailscale está instalado, pero no conectado.</p>
+      <p class="sub">1. Abre Tailscale en este ordenador e inicia sesión.<br>
+      2. Arranca Kaiwa con <code>./run.sh --phone</code> para activar el enlace seguro.<br>
+      3. Vuelve aquí para ver el código QR.</p>`;
   } else {
     box.innerHTML = `
-      <p class="sub">Kaiwa runs on this computer — your phone connects to it as a remote screen.
-      The free <b>Tailscale</b> app makes that connection secure from anywhere:</p>
-      <p class="sub">1. <a href="https://tailscale.com/download" target="_blank" rel="noopener">Install Tailscale ↗</a> on this computer and sign in.<br>
-      2. Install it on your phone and sign in with the same account.<br>
-      3. Restart Kaiwa (run.sh), then come back here for your QR code.</p>`;
+      <p class="sub">Kaiwa se ejecuta en este ordenador y el móvil se conecta a él.
+      La app gratuita <b>Tailscale</b> permite conectarte de forma segura:</p>
+      <p class="sub">1. <a href="https://tailscale.com/download" target="_blank" rel="noopener">Instalar Tailscale ↗</a> en este ordenador e inicia sesión.<br>
+      2. Instálalo en el móvil e inicia sesión con la misma cuenta.<br>
+      3. Arranca Kaiwa con <code>./run.sh --phone</code> y vuelve aquí para ver el código QR.</p>`;
   }
 }
 /* AI provider selection */
@@ -1392,11 +1489,22 @@ function renderProviderUI() {
   const info = providerCatalog.providers.find(x => x.id === $("#set-provider").value);
   if (!info) return;
   $("#apikey-row").classList.toggle("hidden", !info.needs_key);
+  $("#set-codex-status").classList.toggle("hidden", info.id !== "codex");
+  if (info.id === "codex") renderCodexStatus();
   $("#set-apikey").value = "";
-  $("#set-apikey").placeholder = info.has_key ? "•••••• saved — paste to replace" : "Paste your API key";
+  $("#set-apikey").placeholder = info.has_key ? "•••••• guardada; pega otra para cambiarla" : "Pega tu clave API";
   const cur = info.model || info.models[0];
   $("#set-model").innerHTML = info.models.map(m =>
-    `<option ${m === cur ? "selected" : ""}>${m}</option>`).join("") || "<option>none found</option>";
+    `<option ${m === cur ? "selected" : ""}>${m}</option>`).join("") || "<option>ninguno disponible</option>";
+}
+async function renderCodexStatus() {
+  const statusEl = $("#set-codex-status");
+  statusEl.textContent = "Comprobando la conexión de tu suscripción…";
+  try {
+    statusEl.textContent = codexStatusMessage(await api.get("/api/codex/status"));
+  } catch {
+    statusEl.textContent = "No se pudo comprobar Codex. Revisa la conexión y vuelve a abrir Ajustes.";
+  }
 }
 $("#set-provider").addEventListener("change", renderProviderUI);
 
@@ -1466,7 +1574,7 @@ async function dictSearch() {
   const d = await api.get(`/api/dictionary?q=${encodeURIComponent(q)}`);
   if (q !== $("#dict-search").value.trim()) return; // stale response
   if (!d.results.length) {
-    box.innerHTML = `<p class="sub">No matches for “${esc(q)}”.</p>`;
+    box.innerHTML = `<p class="sub">Sin resultados para “${esc(q)}”.</p>`;
     return;
   }
   box.innerHTML = d.results.map(r => `
@@ -1475,9 +1583,9 @@ async function dictSearch() {
         <span class="dict-form">${esc(r.form)}</span>
         ${r.reading && r.reading !== r.form ? `<span class="dict-reading">${esc(r.reading)}</span>` : ""}
       </div>
-      <div class="dict-def">${esc(r.meaning)}${r.common ? ' <span class="dict-common">common</span>' : ""}</div>
+      <div class="dict-def">${esc(r.meaning)}${r.common ? ' <span class="dict-common">habitual</span>' : ""}</div>
       <button class="icon-btn dict-save" data-word="${esc(r.form)}" data-reading="${esc(r.reading || "")}"
-        data-meaning="${esc(r.meaning)}" title="Save to My Words">${icon("bookmark-plus")}</button>
+        data-meaning="${esc(r.meaning)}" title="Guardar en Mis palabras">${icon("bookmark-plus")}</button>
     </div>`).join("");
 }
 $("#dict-results").addEventListener("click", async e => {

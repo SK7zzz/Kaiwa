@@ -28,6 +28,11 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior-y: none; }
 button { font-family: inherit; cursor: pointer; }
 input, select { font-family: inherit; }
 .hidden { display: none !important; }
+.subscription-opt { width: 100%; font-size: inherit; text-align: left; color: var(--ink); }
+.subscription-opt span { flex: 1; }
+.subscription-opt b { color: var(--indigo); }
+.subscription-opt small { display: block; margin-top: 5px; line-height: 1.5; }
+#ob-profile-status { color: var(--accent); }
 
 /* ---------------------------------------------------------------- icons */
 .icon {

@@ -220,11 +220,12 @@ def kanji_to_kana(text: str) -> str:
     """Rewrite kanji words as their hiragana readings (hiragana-only script mode —
     small local models can't be trusted to obey 'no kanji' on their own)."""
     out = []
-    for surface, kana, pos in _tokenize(text):
-        if has_kanji(surface) and kana:
-            out.append(kata_to_hira(kana))
-        else:
-            out.append(surface)
+    for fragment in re.split(r"(\s+)", text):
+        if fragment.isspace():
+            out.append(fragment)
+            continue
+        for surface, kana, _pos in _tokenize(fragment):
+            out.append(kata_to_hira(kana) if has_kanji(surface) and kana else surface)
     return "".join(out)
 
 
