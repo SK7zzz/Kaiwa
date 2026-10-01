@@ -18,4 +18,3 @@ def tutor_config(inherited: dict) -> dict:
             'tools': {'update_plan': {'enabled': False},
                       'experimental_request_user_input': {'enabled': False}},
             'project_doc_max_bytes': 0, 'include_apps_instructions': False}
-
