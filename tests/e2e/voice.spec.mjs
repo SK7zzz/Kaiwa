@@ -39,6 +39,18 @@ test.describe('GPT Live con suscripción', () => {
     await expect(page.locator('#onboard-modal')).toBeHidden();
     await page.locator('#card-call').click();
     await expect(page.locator('#call-overlay')).toBeVisible();
+    await test.step('La llamada protege el foco y expone los estados de sus controles', async () => {
+      await expect(page.locator('#call-overlay')).toHaveAttribute('role', 'dialog', { timeout: 15_000 });
+      await expect(page.locator('#call-overlay')).toHaveAttribute('aria-modal', 'true', { timeout: 15_000 });
+      await expect(page.locator('#call-mute')).toBeFocused({ timeout: 15_000 });
+      expect(await page.locator('#app').evaluate(app => app.inert)).toBe(true);
+      await expect(page.locator('#call-mute')).toHaveAttribute('aria-pressed', 'false', { timeout: 15_000 });
+      await expect(page.locator('#call-cc')).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
+      await page.keyboard.press('Shift+Tab');
+      await expect(page.locator('#call-cc')).toBeFocused({ timeout: 15_000 });
+      await page.keyboard.press('Tab');
+      await expect(page.locator('#call-mute')).toBeFocused({ timeout: 15_000 });
+    });
     await expect.poll(() => page.evaluate(() => codexCall?.peer?.connectionState), { timeout: 90_000 }).toBe('connected');
     await test.step('La sesión remota está iniciada antes de comenzar el tutor', async () => {
       await expect.poll(() => page.evaluate(() =>
@@ -64,6 +76,7 @@ test.describe('GPT Live con suscripción', () => {
     }, { timeout: 90_000 }).toBe(true);
     await page.locator('#call-mute').click();
     await expect(page.locator('#call-mute')).toHaveClass(/muted-on/);
+    await expect(page.locator('#call-mute')).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
     expect(await page.evaluate(() => codexCall.stream.getAudioTracks()[0].enabled)).toBe(false);
     await expect.poll(async () => {
       const response = await request.get(`/api/sessions/${sessionId}/messages`);
@@ -87,9 +100,12 @@ test.describe('GPT Live con suscripción', () => {
     await expect(page.locator('#call-caption')).not.toBeEmpty();
     await page.locator('#call-cc').click();
     await expect(page.locator('#call-overlay')).toHaveClass(/no-cc/);
+    await expect(page.locator('#call-cc')).toHaveAttribute('aria-pressed', 'false', { timeout: 15_000 });
     await page.locator('#call-cc').click();
     await expect(page.locator('#call-overlay')).not.toHaveClass(/no-cc/);
+    await expect(page.locator('#call-cc')).toHaveAttribute('aria-pressed', 'true', { timeout: 15_000 });
     await page.locator('#call-mute').click();
+    await expect(page.locator('#call-mute')).toHaveAttribute('aria-pressed', 'false', { timeout: 15_000 });
     expect(await page.evaluate(() => codexCall.stream.getAudioTracks()[0].enabled)).toBe(true);
     const shot = testInfo.outputPath('live-voice.png');
     await page.screenshot({ path: shot });
@@ -124,4 +140,6 @@ test('Micrófono denegado muestra acción y permite cerrar sin crear sesión', a
   await testInfo.attach('microphone-denied', { path: shot, contentType: 'image/png' });
   await page.locator('#call-hangup').click();
   await expect(page.locator('#call-overlay')).toBeHidden();
+  expect(await page.locator('#app').evaluate(app => app.inert)).toBe(false);
+  await expect(page.locator('#card-call')).toBeFocused({ timeout: 15_000 });
 });

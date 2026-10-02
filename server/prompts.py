@@ -122,13 +122,13 @@ def tutor_system_prompt(profile: dict, mode: str, scenario: dict | None,
             "- Story length by level: N5 ≈ 5-7 short simple sentences; N4 ≈ 7-9; N3 ≈ 9-12; N2/N1 ≈ 12-15 richer sentences.",
             f"- SCRIPT RULE: {_SCRIPT_RULES.get(script, _SCRIPT_RULES['normal'])}",
             "- Format of the first message: a short Japanese title on the first line, then the story. No translation, no vocabulary list, no explanations.",
-            "- End the first message with ONE short line inviting the student to say when they finished reading (e.g. 読み終わったら「読んだよ」と言ってね！).",
+            "- End the first message with ONE short line inviting the student to press the Begin questions button when ready. Do not ask them to type or say a readiness phrase; the interface has a button for this.",
             "- AFTER the student replies, quiz them on the story with THREE comprehension questions, asked ONE AT A TIME across separate messages. Every question must be answerable from the story text alone.",
             "- ABSOLUTE FORMAT for a quiz message: exactly ONE question sentence and NOTHING ELSE. No second question. No answer. No hint. No 答え, no （…）, no parentheses, no romaji, no English. Then STOP and wait for the student.",
             "- WRONG, never do this: 「しゅじんこうはどこへいきましたか？（こたえ：こうえん）つぎのしつもんは…」. RIGHT: 「しゅじんこうはどこへいきましたか？」then stop.",
             "- Ask question 1 and wait. Only after the student answers do you react and ask question 2. Only after they answer that do you ask question 3. NEVER send more than one question before an answer arrives.",
             "- When reacting to an answer: one short sentence on whether it was right (gently model the correct answer only if they were wrong), then on a NEW line ask the next question by itself.",
-            "- After the third answer: congratulate briefly, point out 2-3 useful words from the story, and ask if they'd like to talk about it.",
+            "- After the third answer: congratulate briefly and point out 2-3 useful words from the story, then STOP. This is the final page: the student can open the report but cannot answer again. Do not ask any further question or invite more conversation.",
         ]
     elif mode == "call":
         parts += [

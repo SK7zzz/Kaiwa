@@ -4,7 +4,12 @@
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const api = {
-  get: (u) => fetch(u).then(r => r.json()),
+  get: async (u) => {
+    const response = await fetch(u);
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "No se pudo cargar la información. Inténtalo de nuevo.");
+    return result;
+  },
   post: (u, b) => fetch(u, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b || {}) }).then(r => r.json()),
   put: (u, b) => fetch(u, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b || {}) }).then(r => r.json()),
   del: (u) => fetch(u, { method: "DELETE" }).then(r => r.json()),
@@ -49,14 +54,39 @@ const state = {
 function show(view) {
   $$(".view").forEach(v => v.classList.add("hidden"));
   $(`#view-${view}`).classList.remove("hidden");
-  $$(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === view));
-  if (view === "home") loadHome();
-  if (view === "review") loadReview();
-  if (view === "vocab") loadVocab();
+  $$(".nav-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.view === view);
+    if (b.dataset.view === view) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  const loaders = { home: loadHome, review: loadReview, vocab: loadVocab, progress: loadProgress, settings: loadSettings };
+  if (loaders[view]) runViewLoad(view, loaders[view]);
   if (view === "dict") $("#dict-search").focus();
-  if (view === "progress") loadProgress();
-  if (view === "settings") loadSettings();
   updateResumePill(view);
+}
+
+async function runViewLoad(view, load) {
+  const section = $(`#view-${view}`);
+  let status = $(".view-status", section);
+  if (!status) {
+    status = document.createElement("div");
+    status.className = "view-status";
+    status.setAttribute("role", "status");
+    section.prepend(status);
+  }
+  section.setAttribute("aria-busy", "true");
+  status.classList.remove("hidden", "error");
+  status.textContent = "Cargando…";
+  try {
+    await load();
+    status.classList.add("hidden");
+  } catch (error) {
+    status.classList.add("error");
+    status.innerHTML = `<p>${esc(error.message || "No se pudo cargar esta pantalla.")}</p><button class="btn" data-retry-view="${view}">Reintentar</button>`;
+    $("button", status).onclick = () => runViewLoad(view, load);
+  } finally {
+    section.setAttribute("aria-busy", "false");
+  }
 }
 $$(".nav-btn").forEach(b => b.addEventListener("click", () => show(b.dataset.view)));
 
@@ -103,7 +133,7 @@ async function boot() {
   updateHealth();
   setInterval(updateHealth, 20000);
   if (!state.profile.name) startOnboarding();
-  loadHome();
+  runViewLoad("home", loadHome);
   refreshDueBadge();
 }
 
@@ -339,18 +369,17 @@ async function loadHome() {
   const greet = hour < 11 ? "おはよう" : hour < 18 ? "こんにちは" : "こんばんは";
   $("#greeting").textContent = `${greet}、${p.name || ""}さん！`;
 
-  api.get("/api/dashboard").then(d => {
-    $("#home-stats").innerHTML =
-      `<div class="chip">${icon("flame", "accent")} ${d.streak} días de racha</div>` +
-      `<div class="chip">${icon("timer")} ${d.total_minutes} min</div>` +
-      `<div class="chip">${icon("book-open")} ${d.words_saved} palabras</div>`;
-    const banner = $("#srs-banner");
-    if (d.srs_due > 0) {
-      banner.classList.remove("hidden");
-      banner.innerHTML = `${icon("layers")} <b>${d.srs_due} palabra${d.srs_due > 1 ? "s" : ""}</b> para repasar. Dedícales unos minutos.`;
-      banner.onclick = () => show("review");
-    } else banner.classList.add("hidden");
-  });
+  const d = await api.get("/api/dashboard");
+  $("#home-stats").innerHTML =
+    `<div class="chip">${icon("flame", "accent")} ${d.streak} día${d.streak === 1 ? "" : "s"} de racha</div>` +
+    `<div class="chip">${icon("timer")} ${d.total_minutes} min</div>` +
+    `<div class="chip">${icon("book-open")} ${d.words_saved} palabra${d.words_saved === 1 ? "" : "s"}</div>`;
+  const banner = $("#srs-banner");
+  if (d.srs_due > 0) {
+    banner.classList.remove("hidden");
+    banner.innerHTML = `${icon("layers")} <b>${d.srs_due} palabra${d.srs_due > 1 ? "s" : ""}</b> para repasar. Dedícales unos minutos.`;
+    banner.onclick = () => show("review");
+  } else banner.classList.add("hidden");
 
   if (!state.catalog) state.catalog = await api.get("/api/scenarios");
   const { scenarios, lessons } = state.catalog;
@@ -359,8 +388,13 @@ async function loadHome() {
   const cats = {};
   scenarios.forEach(s => (cats[s.category] ||= []).push(s));
   $("#scenario-cats").innerHTML = Object.entries(cats).map(([cat, list]) =>
-    `<div class="cat-title">${cat}</div><div class="scen-grid">${list.map(scenCard).join("")}</div>`
+    `<div class="scenario-category" data-category="${esc(cat)}"><h3 class="cat-title">${esc(cat)}</h3><div class="scen-grid">${list.map(scenCard).join("")}</div></div>`
   ).join("");
+
+  $("#scenario-filters").innerHTML = ["all", ...Object.keys(cats)].map(category =>
+    `<button type="button" class="filter-btn" data-category="${esc(category)}" aria-pressed="${category === practiceCategory}">${category === "all" ? "Todas" : esc(category)}</button>`
+  ).join("");
+  filterPractices();
 
   $$("#lessons-row .scen-card, #scenario-cats .scen-card").forEach(c =>
     c.addEventListener("click", () => startSession(
@@ -369,12 +403,58 @@ async function loadHome() {
 }
 
 function scenCard(s) {
-  return `<div class="scen-card" data-id="${s.id}" data-kind="${s.kind}">
-    <span class="scen-icon">${icon(ICON_MAP[s.id] || "message-circle")}</span>
-    <h4>${s.title}</h4><span class="ja">${s.title_ja}</span>
-    <p>${s.description}</p><span class="lv">${s.levels}</span>
-  </div>`;
+  const art = { ramen: "ramen", train: "train", directions: "neighborhood", greetings: "study" }[s.id];
+  return `<button type="button" class="scen-card${art ? " illustrated" : ""}" data-id="${s.id}" data-kind="${s.kind}" data-search="${esc(normalizePractice(`${s.title} ${s.title_ja} ${s.description} ${s.category}`))}">
+    ${art ? `<img class="scen-art" src="/static/brand/${art}.webp" alt="" width="384" height="256" loading="lazy">` : ""}
+    <span class="scen-body"><span class="scen-icon">${icon(ICON_MAP[s.id] || "message-circle")}</span>
+    <strong class="scen-title">${esc(s.title)}</strong><span class="ja" lang="ja">${esc(s.title_ja)}</span>
+    <span class="scen-description">${esc(s.description)}</span><span class="lv">${esc(s.levels)}</span></span>
+  </button>`;
 }
+
+let practiceCategory = "all";
+const normalizePractice = text => text.toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+function filterPractices() {
+  const query = normalizePractice($("#practice-search").value.trim());
+  let count = 0;
+  $$(".scenario-category").forEach(group => {
+    const categoryMatches = practiceCategory === "all" || group.dataset.category === practiceCategory;
+    $$(".scen-card", group).forEach(card => {
+      const visible = categoryMatches && card.dataset.search.includes(query);
+      card.classList.toggle("hidden", !visible);
+      if (visible) count++;
+    });
+    group.classList.toggle("hidden", !$(".scen-card:not(.hidden)", group));
+  });
+  $$("#lessons-row .scen-card").forEach(card => {
+    const visible = card.dataset.search.includes(query);
+    card.classList.toggle("hidden", !visible);
+    if (visible) count++;
+  });
+  $("#scenario-empty").classList.toggle("hidden", count !== 0);
+  $("#practice-results").textContent = `${count} práctica${count === 1 ? "" : "s"} disponible${count === 1 ? "" : "s"}`;
+}
+function resetPractices() {
+  practiceCategory = "all";
+  $("#practice-search").value = "";
+  $$(".filter-btn").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.category === "all")));
+  filterPractices();
+}
+$("#practice-search").addEventListener("input", filterPractices);
+$("#practice-clear").addEventListener("click", resetPractices);
+$("#practice-reset").addEventListener("click", resetPractices);
+$("#scenario-filters").addEventListener("click", event => {
+  const button = event.target.closest(".filter-btn");
+  if (!button) return;
+  practiceCategory = button.dataset.category;
+  $$(".filter-btn").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+  filterPractices();
+});
+$("#hero-practice").addEventListener("click", () => startSession("free_chat", {}));
+$("#hero-explore").addEventListener("click", () => {
+  $("#scenarios-heading").scrollIntoView({ block: "start" });
+  $("#scenarios-heading").focus({ preventScroll: true });
+});
 
 $("#card-free").addEventListener("click", () => startSession("free_chat", {}));
 $("#card-custom").addEventListener("click", () => $("#custom-modal").classList.remove("hidden"));
@@ -406,7 +486,21 @@ $("#cr-start").addEventListener("click", () => {
 /* ================================================================== chat */
 async function startSession(mode, opts) {
   if (state.session) return guardActiveSession(() => startSession(mode, opts));
-  const res = await api.post("/api/sessions", { mode, ...opts });
+  if (startingSession) return;
+  startingSession = true;
+  const status = $("#session-start-error");
+  status.classList.remove("hidden");
+  status.textContent = "Preparando tu práctica…";
+  let res;
+  try {
+    res = await writeJson("/api/sessions", "POST", { mode, ...opts });
+    status.classList.add("hidden");
+  } catch (error) {
+    status.textContent = `No se pudo iniciar la sesión: ${error.message} Vuelve a elegir tu práctica para reintentar.`;
+    return;
+  } finally {
+    startingSession = false;
+  }
   state.session = { ...res, mode };
   if (mode === "story") return openReader(res);   // stories get the book UI
   const scen = res.scenario;
@@ -420,6 +514,7 @@ async function startSession(mode, opts) {
   show("chat");
   sendChat("");   // AI opens the conversation
 }
+let startingSession = false;
 
 $("#chat-back").addEventListener("click", () => show("home"));
 $("#tgl-furigana").addEventListener("change", applyReadingToggles);
@@ -432,7 +527,7 @@ function applyReadingToggles() {
 function msgEl(role) {
   const div = document.createElement("div");
   div.className = `msg ${role}`;
-  div.innerHTML = `<div class="who">${role === "ai" ? "カイワ Kaiwa" : "Tú"}</div><div class="bubble"></div>`;
+  div.innerHTML = `<div class="who">${role === "ai" ? "カイワ Kaiwa" : "Tú"}</div><div class="bubble" lang="ja"></div>`;
   $("#messages").appendChild(div);
   return div;
 }
@@ -443,7 +538,7 @@ function renderTokens(tokens) {
     const ruby = t.ruby.map(seg =>
       seg.r ? `<ruby>${esc(seg.t)}<rt>${esc(seg.r)}</rt></ruby>` : esc(seg.t)
     ).join("");
-    return t.word ? `<span class="tok" data-w="${esc(t.surface)}">${ruby}</span>` : ruby;
+    return t.word ? `<span class="tok" role="button" tabindex="0" aria-label="Consultar ${esc(t.surface)}" data-w="${esc(t.surface)}">${ruby}</span>` : ruby;
   }).join("");
 }
 const esc = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -479,6 +574,8 @@ async function streamChat(text, h) {
 async function sendChat(text) {
   if (state.busy || !state.session) return;
   state.busy = true;
+  $("#send-btn").disabled = true;
+  $("#messages").setAttribute("aria-busy", "true");
   $("#hints").classList.add("hidden");
 
   let userDiv = null;
@@ -508,14 +605,16 @@ async function sendChat(text) {
     bubble.textContent = "⚠️ " + e.message;
   }
   state.busy = false;
+  $("#send-btn").disabled = false;
+  $("#messages").setAttribute("aria-busy", "false");
   scrollDown();
 }
 
 function finishAiMessage(aiDiv, ev, raw) {
   const bubble = $(".bubble", aiDiv);
   bubble.innerHTML = renderTokens(ev.tokens) +
-    `<div class="romaji-line">${esc(ev.romaji || "")}</div>` +
-    `<div class="trans-line hidden"></div>`;
+    `<div class="romaji-line" lang="ja-Latn">${esc(ev.romaji || "")}</div>` +
+    `<div class="trans-line hidden" lang="es"></div>`;
   const actions = document.createElement("div");
   actions.className = "msg-actions";
   actions.innerHTML = `
@@ -583,27 +682,39 @@ async function queueCorrection(mid, userDiv) {
 }
 
 /* hints */
-$("#hint-btn").addEventListener("click", async () => {
+$("#hint-btn").addEventListener("click", () => {
   if (!state.session) return;
   const h = $("#hints");
   if (!h.classList.contains("hidden")) { h.classList.add("hidden"); return; }  // toggle off
   h.classList.remove("hidden");
+  loadHints();
+});
+async function loadHints() {
+  const h = $("#hints");
   h.innerHTML = `<div class="hint-card">${icon("lightbulb")} Preparando ideas…</div>`;
-  const r = await api.post("/api/hint", { session_id: state.session.session_id });
+  let r;
+  try {
+    r = await writeJson("/api/hint", "POST", { session_id: state.session.session_id });
+  } catch (error) {
+    h.innerHTML = `<p class="error" role="alert">No se pudieron preparar las pistas: ${esc(error.message)}</p><button class="btn" id="hint-retry">Reintentar pistas</button>`;
+    $("#hint-retry").onclick = loadHints;
+    return;
+  }
   h.innerHTML = ((r.suggestions || []).map(s =>
-    `<div class="hint-card" data-t="${esc(s.japanese)}">${esc(s.japanese)}` +
-    `<span class="en">${esc(s.romaji || "")} — ${esc(s.english || "")}</span></div>`).join("")
+    `<button type="button" class="hint-card" data-t="${esc(s.japanese)}"><span lang="ja">${esc(s.japanese)}</span>` +
+    `<span class="en">${esc(s.romaji || "")} — ${esc(s.english || "")}</span></button>`).join("")
     || `<div class="hint-card">No se pudieron generar pistas. Inténtalo de nuevo.</div>`) +
     `<button class="hint-close" title="Cerrar pistas">${icon("x")}</button>`;
   $(".hint-close", h).addEventListener("click", () => h.classList.add("hidden"));
   $$(".hint-card", h).forEach(c => c.addEventListener("click", () => {
     if (c.dataset.t) { $("#chat-input").value = c.dataset.t; h.classList.add("hidden"); $("#chat-input").focus(); }
   }));
-});
+}
 
 /* composer */
 $("#send-btn").addEventListener("click", submitInput);
-$("#chat-input").addEventListener("keydown", e => { if (e.key === "Enter") submitInput(); });
+$("#chat-input").addEventListener("keydown", e => { if (isSubmitKey(e)) submitInput(); });
+const isSubmitKey = event => event.key === "Enter" && !event.isComposing && event.keyCode !== 229;
 function submitInput() {
   const inp = $("#chat-input");
   const t = inp.value.trim();
@@ -617,8 +728,9 @@ $("#end-session").addEventListener("click", showSessionSummary);
 async function showSessionSummary() {
   if (!state.session) return;
   const inner = $("#summary-inner");
-  inner.innerHTML = `<h2>${icon("clipboard-list")} Informe de sesión</h2><p class='sub'>Kaiwa está preparando tu informe…</p>`;
+  inner.innerHTML = `<h2>${icon("clipboard-list")} Informe de sesión</h2><p class='sub'>Kaiwa está preparando tu informe…</p><div class="modal-btns"><button class="btn" id="sum-back">Volver a la sesión</button></div>`;
   $("#summary-modal").classList.remove("hidden");
+  $("#sum-back").onclick = () => $("#summary-modal").classList.add("hidden");
   let s;
   try {
     s = await api.post(`/api/sessions/${state.session.session_id}/end`);
@@ -646,9 +758,7 @@ async function showSessionSummary() {
     <div class="modal-btns"><button class="btn primary" id="sum-close">Listo ✓</button></div>`;
   $$(".new-word-row button", inner).forEach(btn => btn.addEventListener("click", async () => {
     const w = s.new_words[+btn.dataset.i];
-    await api.post("/api/vocab", w);
-    btn.textContent = "✓ Guardada"; btn.disabled = true;
-    refreshDueBadge();
+    await saveWord(btn, w);
   }));
   $("#sum-close").addEventListener("click", () => {
     $("#summary-modal").classList.add("hidden");
@@ -707,8 +817,8 @@ function addReaderPage(type) {
   div.className = `reader-page ${type}`;
   if (type === "story") {
     div.innerHTML = `
-      <h2 class="story-title"></h2>
-      <div class="story-body">${TYPING}</div>
+      <h2 class="story-title" lang="ja"></h2>
+      <div class="story-body" lang="ja">${TYPING}</div>
       <div class="romaji-line"></div><div class="trans-line hidden"></div>
       <div class="msg-actions reader-actions"></div>
       <div class="reader-cta hidden"><button class="btn primary">Comenzar preguntas ➤</button></div>`;
@@ -720,12 +830,12 @@ function addReaderPage(type) {
       : `${icon("message-circle")} Conversación`;
     div.innerHTML = `
       <div class="quiz-label">${label}</div>
-      <div class="quiz-body">${TYPING}</div>
+      <div class="quiz-body" lang="ja">${TYPING}</div>
       <div class="romaji-line"></div><div class="trans-line hidden"></div>
       <div class="msg-actions reader-actions"></div>
       <div class="quiz-after"></div>
       <div class="quiz-answer hidden">
-        <input type="text" placeholder="${n <= 3 ? "Responde en japonés…" : "Responde…"}" autocomplete="off">
+        <input type="text" aria-label="Tu respuesta" placeholder="${n <= 3 ? "Responde en japonés…" : "Responde…"}" autocomplete="off">
         <button class="icon-btn big send" title="Enviar">${icon("send-horizontal")}</button>
       </div>`;
   }
@@ -821,8 +931,7 @@ function finishReaderPage(page, ev, raw) {
       const after = $(".quiz-after", page);
       after.innerHTML = `<button class="btn primary rd-finish">${icon("clipboard-list")} Terminar y ver informe</button>`;
       $(".rd-finish", after).addEventListener("click", showSessionSummary);
-    }
-    wireQuizAnswer(page);
+    } else wireQuizAnswer(page);
     if (state.settings.auto_play !== false) playTTS(raw, 1.0);  // hear the question
   }
   updateReaderNav();
@@ -843,7 +952,7 @@ function wireQuizAnswer(page) {
     readerStream(t, addReaderPage("quiz"), chip); // corrections land on the chip
   };
   send.addEventListener("click", go);
-  inp.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+  inp.addEventListener("keydown", e => { if (isSubmitKey(e)) go(); });
   inp.focus();
 }
 
@@ -851,28 +960,39 @@ function wireQuizAnswer(page) {
 async function wordPopup(e, word, sentence) {
   const pop = $("#word-pop"), inner = $("#word-pop-inner");
   pop.classList.remove("hidden");
-  const x = Math.min(e.clientX, window.innerWidth - 310);
-  const y = Math.min(e.clientY + 12, window.innerHeight - 260);
+  const anchor = e.target.getBoundingClientRect();
+  const x = Math.max(12, Math.min(e.clientX || anchor.left, window.innerWidth - 342));
+  const y = Math.max(12, Math.min((e.clientY || anchor.bottom) + 12, window.innerHeight - 260));
   inner.style.left = x + "px"; inner.style.top = y + "px";
   inner.innerHTML = `<span class="w">${esc(word)}</span><div class="loading">Buscando…</div>`;
-  const info = await api.post("/api/word", { word, sentence });
-  inner.innerHTML = `
-    <span class="w">${esc(word)}</span><span class="r">${esc(info.reading || "")}</span>
+  let info;
+  try {
+    info = await api.post("/api/word", { word, sentence });
+    if (info.error) throw new Error(info.error);
+  } catch (error) {
+    inner.innerHTML = `<p role="status">No se pudo consultar la palabra: ${esc(error.message)}</p>`;
+    return;
+  }
+  if (pop.classList.contains("hidden")) return;
+  inner.innerHTML = wordPopupContent(word, info);
+  inner.style.left = Math.max(12, Math.min(x, window.innerWidth - inner.offsetWidth - 12)) + "px";
+  inner.style.top = Math.max(12, Math.min(y, window.innerHeight - inner.offsetHeight - 12)) + "px";
+  $("#pop-play").addEventListener("click", ev => { ev.stopPropagation(); playTTS(word, 1.0); });
+  $("#pop-save").addEventListener("click", async ev => {
+    ev.stopPropagation();
+    await saveWord($("#pop-save"), info);
+  });
+}
+function wordPopupContent(word, info) {
+  return `<span class="w">${esc(word)}</span><span class="r">${esc(info.reading || "")}</span>
     <div class="rom">${esc(info.romaji || "")}</div>
     <div class="m">${esc(info.meaning || "")}</div>
     ${info.notes ? `<div class="note">${icon("info")} ${esc(info.notes)}</div>` : ""}
     ${info.example ? `<div class="ex">${esc(info.example)}<br><i>${esc(info.example_en || "")}</i></div>` : ""}
     <div class="pop-btns">
-      <button class="btn small" id="pop-play">${icon("volume-2")}</button>
+      <button class="btn small" id="pop-play" aria-label="Escuchar la palabra">${icon("volume-2")}</button>
       <button class="btn small primary" id="pop-save">${icon("bookmark-plus")} Guardar palabra</button>
     </div>`;
-  $("#pop-play").addEventListener("click", ev => { ev.stopPropagation(); playTTS(word, 1.0); });
-  $("#pop-save").addEventListener("click", async ev => {
-    ev.stopPropagation();
-    await api.post("/api/vocab", info);
-    $("#pop-save").textContent = "✓ Guardada"; $("#pop-save").disabled = true;
-    refreshDueBadge();
-  });
 }
 $("#word-pop").addEventListener("click", e => {
   if (e.target.id === "word-pop") $("#word-pop").classList.add("hidden");
@@ -1233,16 +1353,16 @@ function renderReviewCard() {
   const area = $("#review-area");
   refreshDueBadge();
   if (reviewIdx >= reviewQueue.length) {
-    area.innerHTML = `<div class="review-done">${icon("party-popper", "big-icon")}<br>¡Repaso al día!<br>
-      <small>Guarda palabras durante tus conversaciones para repasarlas aquí.</small></div>`;
+    area.innerHTML = `<div class="review-done empty-state"><img src="/static/brand/study.webp" alt="" width="240" height="160"><h3>Todo listo para tu próxima práctica</h3>
+      <p>No hay palabras pendientes de repaso. Guarda palabras durante tus conversaciones para volver a verlas aquí.</p><button class="btn primary" data-action="practice">Ir a practicar</button></div>`;
     return;
   }
   const w = reviewQueue[reviewIdx];
   const iv = srsPreview(w);
   area.innerHTML = `
     <p class="review-count">${reviewIdx + 1} / ${reviewQueue.length}</p>
-    <div class="flashcard" id="fc">
-      <div class="big-word">${esc(w.word)}</div>
+    <div class="flashcard" id="fc" role="button" tabindex="0" aria-label="Mostrar la respuesta">
+      <div class="big-word" lang="ja">${esc(w.word)}</div>
       <div class="reading hidden">${esc(w.reading || "")} <i style="font-size:.8em">${esc(w.romaji || "")}</i></div>
       <div class="meaning hidden">${esc(w.meaning || "")}</div>
       ${w.example ? `<div class="example hidden">${esc(w.example)}<br><i>${esc(w.example_en || "")}</i></div>` : ""}
@@ -1260,9 +1380,13 @@ function renderReviewCard() {
     </div>
     <div style="text-align:center;margin-top:12px"><button class="btn small" id="fc-play">${icon("volume-2")} Escuchar</button></div>`;
   $("#fc-play").addEventListener("click", () => playTTS(w.word, 1.0));
+  $("#fc").addEventListener("keydown", event => {
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.currentTarget.click(); }
+  });
   $("#fc").addEventListener("click", () => {
     $$("#fc .hidden").forEach(el => el.classList.remove("hidden"));
     $("#fc-hint").remove();
+    $("#fc").setAttribute("aria-label", "Respuesta mostrada");
     $("#grades").classList.remove("hidden");
   }, { once: true });
   const grade = g => async () => {
@@ -1287,7 +1411,7 @@ async function loadVocab() {
 function renderVocab() {
   const list = state.vocab || [];
   if (!list.length) {
-    $("#vocab-list").innerHTML = `<p class="sub">Todavía no tienes palabras. Pulsa una palabra en una conversación para guardarla.</p>`;
+    $("#vocab-list").innerHTML = `<div class="empty-state"><img src="/static/brand/study.webp" alt="" width="240" height="160"><h3>Tu colección empieza con una palabra</h3><p>Todavía no tienes palabras. Pulsa una palabra en una conversación para guardarla.</p><button class="btn primary" data-action="practice">Ir a practicar</button></div>`;
     return;
   }
   const slice = list.slice(0, state.vocabShown);
@@ -1319,9 +1443,9 @@ async function loadProgress() {
   const d = await api.get("/api/dashboard");
   const stat = (n, l) => `<div class="stat-card"><div class="num">${n}</div><div class="lbl">${l}</div></div>`;
   $("#progress-stats").innerHTML =
-    stat(`${d.streak}${icon("flame", "accent")}`, "días de racha") + stat(d.total_minutes, "minutos practicados") +
-    stat(d.sessions_count, "sesiones") + stat(d.messages_spoken, "respuestas") +
-    stat(d.words_saved, "palabras guardadas") + stat(d.mistakes_logged, "correcciones");
+    stat(`${d.streak}${icon("flame", "accent")}`, d.streak === 1 ? "día de racha" : "días de racha") + stat(d.total_minutes, "minutos practicados") +
+    stat(d.sessions_count, d.sessions_count === 1 ? "sesión" : "sesiones") + stat(d.messages_spoken, d.messages_spoken === 1 ? "respuesta" : "respuestas") +
+    stat(d.words_saved, d.words_saved === 1 ? "palabra guardada" : "palabras guardadas") + stat(d.mistakes_logged, d.mistakes_logged === 1 ? "corrección" : "correcciones");
   state.recentSessions = d.recent_sessions;
   state.sessShown = SESS_PAGE;
   renderRecentSessions();
@@ -1336,15 +1460,15 @@ const SESS_PAGE = 8;
 function renderRecentSessions() {
   const list = state.recentSessions || [];
   if (!list.length) {
-    $("#recent-sessions").innerHTML = `<p class="sub">Todavía no hay sesiones. Empieza una desde Inicio.</p>`;
+    $("#recent-sessions").innerHTML = `<div class="empty-state"><h3>Cada sesión cuenta</h3><p>Todavía no hay sesiones. Empieza una desde Inicio y encuentra aquí tu informe.</p><button class="btn" data-action="practice">Ir a practicar</button></div>`;
     return;
   }
   const slice = list.slice(0, state.sessShown);   // slice index == index into state.recentSessions
   const more = list.length - slice.length;
   $("#recent-sessions").innerHTML = slice.map((s, i) => `
     <div class="session-item expandable" data-i="${i}">
-      <div class="head"><span>${esc(s.title)} <small>(${esc(MODE_LABELS[s.mode] || s.mode)})</small></span>
-      <span class="when">${new Date(s.started_at * 1000).toLocaleDateString()} · ${s.minutes} min <span class="chev">▾</span></span></div>
+      <button type="button" class="head session-toggle" aria-expanded="false"><span>${esc(s.title)} ${s.title === MODE_LABELS[s.mode] ? "" : `<small>(${esc(MODE_LABELS[s.mode] || s.mode)})</small>`}</span>
+      <span class="when">${new Date(s.started_at * 1000).toLocaleDateString("es-ES")} · ${Number(s.minutes).toLocaleString("es-ES")} min <span class="chev">▾</span></span></button>
       ${s.summary?.summary ? `<div class="summ">${esc(s.summary.summary)}</div>` : ""}
       <div class="sess-detail hidden">${sessionDetailHTML(s)}
         <button class="btn small sess-pdf" data-i="${i}">${icon("clipboard-list")} Guardar como PDF</button>
@@ -1377,6 +1501,7 @@ $("#recent-sessions").addEventListener("click", e => {
   if (item) {
     item.querySelector(".sess-detail")?.classList.toggle("hidden");
     item.classList.toggle("open");
+    $(".session-toggle", item).setAttribute("aria-expanded", String(item.classList.contains("open")));
   }
 });
 
@@ -1393,6 +1518,8 @@ function printSessionReport(s) {
 
 /* ============================================================== settings */
 async function loadSettings() {
+  if (settingsDirty) return;
+  $("#settings-saved").classList.add("hidden");
   const p = await api.get("/api/profile");
   state.profile = p; state.settings = p.settings;
   $("#set-name").value = p.name || "";
@@ -1419,8 +1546,17 @@ async function loadSettings() {
   $("#set-autotranslate").checked = !!p.settings.auto_translate;
 
   renderPhoneSetup(); // async, fills its own card
-  renderBackupStatus();
+  await renderBackupStatus();
 }
+let settingsDirty = false;
+function markSettingsDirty() {
+  settingsDirty = true;
+  const status = $("#settings-saved");
+  status.classList.remove("hidden", "error");
+  status.textContent = "Cambios sin guardar. Se conservarán mientras navegas por la app.";
+}
+$("#view-settings").addEventListener("input", markSettingsDirty);
+$("#view-settings").addEventListener("change", markSettingsDirty);
 
 async function renderBackupStatus() {
   const b = await api.get("/api/backup/status").catch(() => null);
@@ -1529,14 +1665,9 @@ $("#set-level").addEventListener("click", e => {
   const btn = e.target.closest("button"); if (!btn) return;
   $$("#set-level button").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
+  markSettingsDirty();
 });
-$("#save-settings").addEventListener("click", async () => {
-  await api.put("/api/profile", {
-    name: $("#set-name").value.trim(),
-    jlpt_level: $("#set-level .active")?.dataset.l || "N5",
-    interests: $("#set-interests").value.trim(),
-    goals: $("#set-goals").value.trim(),
-  });
+function settingsPatch() {
   const prov = $("#set-provider").value;
   const patch = {
     provider: prov,
@@ -1545,20 +1676,44 @@ $("#save-settings").addEventListener("click", async () => {
     intonation: parseFloat($("#set-intonation").value),
     auto_play: $("#set-autoplay").checked,
     auto_translate: $("#set-autotranslate").checked,
-    furigana: $("#tgl-furigana").checked,
-    romaji: $("#tgl-romaji").checked,
   };
   patch.backup_freq = $("#set-backup-freq").value;
   patch[prov === "ollama" ? "model" : `model_${prov}`] = $("#set-model").value;
   const keyVal = $("#set-apikey").value.trim();
   if (keyVal) patch[`api_key_${prov}`] = keyVal;  // only send a key when the user typed one
-  state.settings = await api.post("/api/settings", patch);
-  state.profile = await api.get("/api/profile");
-  providerCatalog = await api.get("/api/providers");  // refresh has_key state
-  renderProviderUI();
-  updateHealth();
-  $("#settings-saved").classList.remove("hidden");
-  setTimeout(() => $("#settings-saved").classList.add("hidden"), 1800);
+  return patch;
+}
+async function writeJson(url, method, body) {
+  const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const result = await response.json();
+  if (!response.ok || result.error) throw new Error(result.error || "Revisa la conexión y vuelve a intentarlo.");
+  return result;
+}
+$("#save-settings").addEventListener("click", async () => {
+  const button = $("#save-settings");
+  const status = $("#settings-saved");
+  button.disabled = true;
+  status.classList.remove("hidden", "error");
+  status.textContent = "Guardando…";
+  try {
+    await writeJson("/api/profile", "PUT", {
+      name: $("#set-name").value.trim(),
+      jlpt_level: $("#set-level .active")?.dataset.l || "N5",
+      interests: $("#set-interests").value.trim(), goals: $("#set-goals").value.trim(),
+    });
+    state.settings = await writeJson("/api/settings", "POST", settingsPatch());
+    state.profile = await api.get("/api/profile");
+    providerCatalog = await api.get("/api/providers");
+    renderProviderUI();
+    updateHealth();
+    settingsDirty = false;
+    status.textContent = "Guardado ✓";
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = `No se pudo guardar todo: ${error.message} Tus cambios siguen en el formulario; pulsa Guardar cambios para reintentar.`;
+  } finally {
+    button.disabled = false;
+  }
 });
 
 /* ============================================================ dictionary */
@@ -1570,8 +1725,17 @@ $("#dict-search").addEventListener("input", () => {
 async function dictSearch() {
   const q = $("#dict-search").value.trim();
   const box = $("#dict-results");
-  if (!q) { box.innerHTML = ""; return; }
-  const d = await api.get(`/api/dictionary?q=${encodeURIComponent(q)}`);
+  if (!q) { box.innerHTML = `<div class="empty-state"><h3>Una palabra abre una conversación</h3><p>Busca en japonés o inglés. Dentro de una charla, pulsa una palabra para recibir ayuda en español.</p></div>`; return; }
+  box.innerHTML = `<p class="sub" role="status">Buscando…</p>`;
+  let d;
+  try {
+    d = await api.get(`/api/dictionary?q=${encodeURIComponent(q)}`);
+  } catch (error) {
+    if (q !== $("#dict-search").value.trim()) return;
+    box.innerHTML = `<div class="view-status error" role="status"><p>${esc(error.message)}</p><button class="btn" id="dict-retry">Reintentar</button></div>`;
+    $("#dict-retry").onclick = dictSearch;
+    return;
+  }
   if (q !== $("#dict-search").value.trim()) return; // stale response
   if (!d.results.length) {
     box.innerHTML = `<p class="sub">Sin resultados para “${esc(q)}”.</p>`;
@@ -1580,7 +1744,7 @@ async function dictSearch() {
   box.innerHTML = d.results.map(r => `
     <div class="dict-entry">
       <div class="dict-jp">
-        <span class="dict-form">${esc(r.form)}</span>
+        <span class="dict-form" lang="ja">${esc(r.form)}</span>
         ${r.reading && r.reading !== r.form ? `<span class="dict-reading">${esc(r.reading)}</span>` : ""}
       </div>
       <div class="dict-def">${esc(r.meaning)}${r.common ? ' <span class="dict-common">habitual</span>' : ""}</div>
@@ -1591,11 +1755,36 @@ async function dictSearch() {
 $("#dict-results").addEventListener("click", async e => {
   const btn = e.target.closest(".dict-save");
   if (!btn || btn.disabled) return;
-  await api.post("/api/vocab", {
+  await saveWord(btn, {
     word: btn.dataset.word, reading: btn.dataset.reading, meaning: btn.dataset.meaning,
   });
-  btn.innerHTML = icon("check");
-  btn.disabled = true;
 });
+
+async function saveWord(button, word) {
+  if (button.disabled) return;
+  const originalLabel = button.innerHTML;
+  const container = button.closest(".new-word-row, .dict-entry, .popup-inner") || button.parentElement;
+  let status = $(".save-status", container);
+  if (!status) {
+    status = document.createElement("p");
+    status.className = "save-status";
+    status.setAttribute("role", "status");
+    container.appendChild(status);
+  }
+  button.disabled = true;
+  status.classList.remove("error");
+  status.textContent = "Guardando…";
+  try {
+    await writeJson("/api/vocab", "POST", word);
+    button.textContent = "✓ Guardada";
+    status.textContent = "";
+    refreshDueBadge();
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = `No se pudo guardar la palabra: ${error.message} Pulsa Guardar para reintentar.`;
+    button.innerHTML = originalLabel;
+    button.disabled = false;
+  }
+}
 
 boot();

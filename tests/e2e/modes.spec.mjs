@@ -132,6 +132,9 @@ test('Codex real: lectura hiragana → tres preguntas respondidas → cierre e i
   const completion = page.locator('.reader-page.quiz').nth(3);
   await expect(completion).toBeVisible();
   await expect(completion.locator('.rd-finish')).toBeVisible();
+  await expect(completion.locator('.rd-finish')).toHaveCount(1);
+  await expect(completion.locator('.quiz-answer')).toBeHidden();
+  await expect(completion.locator('.quiz-body')).not.toContainText(/[?？]/);
   await expect(completion.locator('.quiz-label')).toContainText('Lectura completada');
   await attachScreenshot(page, testInfo, 'hiragana-reading-three-answers-complete');
   await page.locator('#rd-prev').click();

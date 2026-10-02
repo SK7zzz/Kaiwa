@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#faf7f2">
+<meta name="theme-color" content="#f7f4ec">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -11,20 +11,21 @@
 <title>Kaiwa 会話 — Tu tutor de japonés</title>
 <link rel="stylesheet" href="/static/style.css">
 <link rel="manifest" href="/static/manifest.json">
-<link rel="apple-touch-icon" href="/static/icon-180.png">
-<link rel="icon" type="image/png" href="/static/icon-192.png">
+<link rel="apple-touch-icon" href="/static/brand/icon-180.png">
+<link rel="icon" type="image/png" href="/static/brand/icon-192.png">
 </head>
 <body>
 <div id="app">
-  <nav id="sidebar">
-    <div class="logo"><svg class="icon logo-icon"><use href="/static/icons.svg#messages-square"/></svg> <span>Kaiwa</span><small>会話</small></div>
-    <button class="nav-btn active" data-view="home"><svg class="icon"><use href="/static/icons.svg#house"/></svg><em>Inicio</em></button>
+  <nav id="sidebar" aria-label="Navegación principal">
+    <div class="logo"><img class="brand-mark" src="/static/brand/kaiwa-mark.png" alt="" width="48" height="48"><span class="brand-copy">Kaiwa<small>会話 · Tu japonés</small></span></div>
+    <button class="nav-btn active" data-view="home" aria-current="page"><svg class="icon"><use href="/static/icons.svg#house"/></svg><em>Inicio</em></button>
     <button class="nav-btn" data-view="review"><svg class="icon"><use href="/static/icons.svg#layers"/></svg><em>Repaso</em> <span id="due-badge" class="badge hidden"></span></button>
-    <button class="nav-btn" data-view="vocab"><svg class="icon"><use href="/static/icons.svg#book-open"/></svg><em>Mis palabras</em></button>
-    <button class="nav-btn" data-view="dict"><svg class="icon"><use href="/static/icons.svg#languages"/></svg><em>Diccionario</em></button>
+    <button class="nav-btn" data-view="vocab" aria-label="Mis palabras"><svg class="icon"><use href="/static/icons.svg#book-open"/></svg><em><span class="nav-full">Mis palabras</span><span class="nav-short">Palabras</span></em></button>
+    <button class="nav-btn" data-view="dict" aria-label="Diccionario"><svg class="icon"><use href="/static/icons.svg#languages"/></svg><em><span class="nav-full">Diccionario</span><span class="nav-short">Buscar</span></em></button>
     <button class="nav-btn" data-view="progress"><svg class="icon"><use href="/static/icons.svg#trending-up"/></svg><em>Progreso</em></button>
     <button class="nav-btn" data-view="settings"><svg class="icon"><use href="/static/icons.svg#settings"/></svg><em>Ajustes</em></button>
-    <div id="health" class="health"></div>
+    <p class="sidebar-note">Tu espacio para hablar,<br>equivocarte y seguir.</p>
+    <div id="health" class="health" role="status"></div>
   </nav>
 
   <main id="main">
@@ -32,37 +33,60 @@
     <section id="view-home" class="view">
       <header class="home-head">
         <div>
+          <div class="mobile-brand"><img class="brand-mark" src="/static/brand/kaiwa-mark.png" alt="" width="32" height="32"><span>Kaiwa <small>会話</small></span></div>
+          <p class="eyebrow">TU JAPONÉS, A TU RITMO</p>
           <h1 id="greeting">こんにちは！</h1>
           <p id="home-sub" class="sub">Un poco de japonés, cada día. Conversa, descubre y repasa.</p>
         </div>
         <div class="chips" id="home-stats"></div>
       </header>
-      <div id="srs-banner" class="srs-banner hidden"></div>
+      <button type="button" id="srs-banner" class="srs-banner hidden"></button>
 
-      <div class="mode-cards">
-        <div class="mode-card free" id="card-free">
-          <svg class="icon mode-icon"><use href="/static/icons.svg#message-circle"/></svg>
-          <h3>Conversación libre</h3><p>Habla de tu día, tus proyectos o lo que te apetezca.</p>
+      <div class="home-hero">
+        <div class="hero-copy">
+          <p class="eyebrow">一歩ずつ · PASO A PASO</p>
+          <h2>Un poco más cerca<br>de hablar japonés.</h2>
+          <p>Una charla, una palabra, una historia. Practica con ayuda en español y descubre tu propia forma de aprender.</p>
+          <div class="hero-actions"><button id="hero-practice" class="btn primary" type="button">Empezar una charla <svg class="icon flip-x"><use href="/static/icons.svg#arrow-left"/></svg></button><button id="hero-explore" class="btn" type="button">Explorar situaciones</button></div>
         </div>
-        <div class="mode-card call" id="card-call">
-          <svg class="icon mode-icon"><use href="/static/icons.svg#phone"/></svg>
-          <h3>Conversación por voz</h3><p>Practica hablando con Kaiwa, a tu ritmo.</p>
-        </div>
-        <div class="mode-card custom" id="card-custom">
-          <svg class="icon mode-icon"><use href="/static/icons.svg#drama"/></svg>
-          <h3>Tu propia escena</h3><p>Elige una situación que quieras vivir en japonés.</p>
-        </div>
-        <div class="mode-card story" id="card-story">
-          <svg class="icon mode-icon"><use href="/static/icons.svg#book-open"/></svg>
-          <h3>Lectura en japonés</h3><p>Lee una historia a tu nivel y comprueba lo que entiendes.</p>
-        </div>
+        <div class="hero-art"><img class="hero-art" src="/static/brand/neighborhood.webp" width="768" height="512" alt="Ilustración de una calle japonesa con una cafetería y un pequeño restaurante" fetchpriority="high"></div>
       </div>
 
+      <h2 class="sect">¿Cómo te apetece practicar?</h2>
+      <div class="mode-cards">
+        <button type="button" class="mode-card free" id="card-free">
+          <svg class="icon mode-icon"><use href="/static/icons.svg#message-circle"/></svg>
+          <span class="mode-copy"><strong>Conversación libre</strong><span>Habla de tu día, tus proyectos o lo que te apetezca.</span></span><span class="mode-link">Por escrito →</span>
+        </button>
+        <button type="button" class="mode-card call" id="card-call">
+          <svg class="icon mode-icon"><use href="/static/icons.svg#phone"/></svg>
+          <span class="mode-copy"><strong>Conversación por voz</strong><span>Escucha y responde, como en una llamada.</span></span><span class="mode-link">GPT Live · experimental →</span>
+        </button>
+        <button type="button" class="mode-card custom" id="card-custom">
+          <svg class="icon mode-icon"><use href="/static/icons.svg#drama"/></svg>
+          <span class="mode-copy"><strong>Tu propia escena</strong><span>Ensaya una situación que quieras vivir.</span></span><span class="mode-link">Tú eliges el contexto →</span>
+        </button>
+        <button type="button" class="mode-card story" id="card-story">
+          <svg class="icon mode-icon"><use href="/static/icons.svg#book-open"/></svg>
+          <span class="mode-copy"><strong>Lectura en japonés</strong><span>Una historia a tu nivel y tres preguntas.</span></span><span class="mode-link">Lee y descubre →</span>
+        </button>
+      </div>
+
+      <p id="session-start-error" class="session-start-error hidden" role="alert"></p>
+
+      <div class="practice-toolbar">
+        <label for="practice-search">Encuentra tu próxima práctica</label>
+        <div class="practice-search-row"><input id="practice-search" type="search" placeholder="Busca ramen, viajes, saludos…" autocomplete="off"><button id="practice-clear" class="btn" type="button">Limpiar</button></div>
+      </div>
       <h2 class="sect"><svg class="icon sect-icon"><use href="/static/icons.svg#book-marked"/></svg> Lecciones guiadas</h2>
       <div id="lessons-row" class="scenario-row"></div>
 
-      <h2 class="sect"><svg class="icon sect-icon"><use href="/static/icons.svg#clapperboard"/></svg> Situaciones de la vida real</h2>
+      <h2 id="scenarios-heading" class="sect" tabindex="-1"><svg class="icon sect-icon"><use href="/static/icons.svg#clapperboard"/></svg> Situaciones de la vida real</h2>
+      <p class="sub">Busca un contexto, entra en escena y prueba a expresarte.</p>
+      <div id="scenario-filters" aria-label="Filtrar situaciones por categoría"></div>
+      <p id="practice-results" class="sub" role="status"></p>
       <div id="scenario-cats"></div>
+      <div id="scenario-empty" class="empty-state hidden"><h3>No encontramos esa práctica</h3><p>Prueba con otra palabra o limpia los filtros para volver a explorar.</p><button id="practice-reset" class="btn" type="button">Ver todas las prácticas</button></div>
     </section>
 
     <!-- CHAT -->
@@ -76,12 +100,12 @@
           <button id="end-session" class="btn danger small">Terminar y repasar</button>
         </div>
       </header>
-      <div id="messages"></div>
+      <div id="messages" role="log" aria-label="Conversación" aria-live="polite"></div>
       <div id="hints" class="hints hidden"></div>
       <footer class="composer">
         <button id="hint-btn" class="icon-btn big" title="Sugerir respuestas"><svg class="icon"><use href="/static/icons.svg#lightbulb"/></svg></button>
         <button id="mic-btn" class="icon-btn big mic" title="Pulsa para hablar"><svg class="icon"><use href="/static/icons.svg#mic"/></svg></button>
-        <input id="chat-input" type="text" placeholder="Escribe en japonés (o en español)…" autocomplete="off">
+        <input id="chat-input" type="text" aria-label="Tu mensaje" placeholder="Escribe en japonés (o en español)…" autocomplete="off">
         <button id="send-btn" class="icon-btn big send" title="Enviar"><svg class="icon"><use href="/static/icons.svg#send-horizontal"/></svg></button>
       </footer>
     </section>
@@ -121,8 +145,8 @@
     <section id="view-dict" class="view hidden">
       <h1><svg class="icon h1-icon"><use href="/static/icons.svg#languages"/></svg> Diccionario</h1>
       <p class="sub">Diccionario japonés–inglés disponible sin conexión. Las explicaciones del tutor son en español.</p>
-      <input id="dict-search" type="search" placeholder="Busca en japonés (寿司, たべる) o inglés (sushi)…" autocomplete="off">
-      <div id="dict-results"></div>
+      <input id="dict-search" type="search" aria-label="Buscar en el diccionario" placeholder="Busca en japonés (寿司, たべる) o inglés (sushi)…" autocomplete="off">
+      <div id="dict-results"><div class="empty-state"><h3>Una palabra abre una conversación</h3><p>Escribe en japonés o inglés para consultar el diccionario local. Dentro de una charla, pulsa una palabra para recibir ayuda en español.</p></div></div>
     </section>
 
     <!-- PROGRESS -->
@@ -142,15 +166,15 @@
         <div class="card">
           <h3><svg class="icon"><use href="/static/icons.svg#user-round"/></svg> Tu perfil</h3>
           <label>Nombre <input id="set-name" type="text" placeholder="Tu nombre"></label>
-          <label>Nivel
-            <div class="level-row" id="set-level">
+          <div class="level-label">Nivel
+            <div class="level-row" id="set-level" role="group" aria-label="Nivel de japonés">
               <button data-l="N5">N5<br><small>Inicio</small></button>
               <button data-l="N4">N4</button>
               <button data-l="N3">N3</button>
               <button data-l="N2">N2</button>
               <button data-l="N1">N1<br><small>Avanzado</small></button>
             </div>
-          </label>
+          </div>
           <label>Intereses <input id="set-interests" type="text" placeholder="tecnología, cocina, viajes…"></label>
           <label>Objetivos <input id="set-goals" type="text" placeholder="entender conversaciones, viajar a Japón…"></label>
         </div>
@@ -166,6 +190,7 @@
               <button id="voice-preview" class="icon-btn" type="button" title="Escuchar esta voz"><svg class="icon"><use href="/static/icons.svg#volume-2"/></svg></button>
             </div>
           </label>
+          <p class="sub">La voz y los controles de abajo ajustan la lectura de mensajes. GPT Live utiliza su propia voz.</p>
           <label>Velocidad de voz <input id="set-speed" type="range" min="0.6" max="1.4" step="0.1"> <span id="speed-val"></span></label>
           <label>Expresividad <input id="set-intonation" type="range" min="0.5" max="2" step="0.1"> <span id="intonation-val"></span></label>
           <p class="sub" id="aivis-hint">Para voces más expresivas, instala
@@ -173,8 +198,6 @@
             y déjalo abierto. Kaiwa detecta sus voces automáticamente.</p>
           <label class="row"><input type="checkbox" id="set-autoplay"> Reproducir automáticamente la voz del tutor</label>
           <label class="row"><input type="checkbox" id="set-autotranslate"> Traducir automáticamente los mensajes al español</label>
-          <button id="save-settings" class="btn primary">Guardar</button>
-          <p id="settings-saved" class="saved hidden">Guardado ✓</p>
         </div>
         <div class="card">
           <h3><svg class="icon"><use href="/static/icons.svg#shield-alert"/></svg> Tus datos</h3>
@@ -208,6 +231,7 @@
           </div>
         </div>
       </div>
+      <div class="settings-save-bar"><p class="settings-save-copy"><strong>Tu configuración</strong><small>Perfil, tutor y copias de seguridad</small></p><button id="save-settings" class="btn primary">Guardar cambios</button><p id="settings-saved" class="saved hidden" role="status">Guardado ✓</p></div>
     </section>
   </main>
 </div>
@@ -220,7 +244,7 @@
   </div>
   <div class="call-stage">
     <div id="call-avatar" class="call-avatar" title="Pulsa para interrumpir">
-      <span class="call-face">カイワ</span>
+      <span class="call-face"><img src="/static/brand/kaiwa-mark.png" alt="Kaiwa" width="100" height="100"></span>
       <span class="ring r1"></span><span class="ring r2"></span>
     </div>
     <div id="call-status" class="call-status">Conectando…</div>
@@ -285,7 +309,9 @@
 <!-- Onboarding modal -->
 <div id="onboard-modal" class="modal hidden">
   <div class="modal-inner">
-    <h2>ようこそ！ Tu japonés empieza aquí <svg class="icon accent"><use href="/static/icons.svg#flower-2"/></svg></h2>
+    <img class="welcome-art" src="/static/brand/neighborhood.webp" alt="" width="768" height="512">
+    <p class="eyebrow">KAIWA · 会話</p>
+    <h2>ようこそ！ Tu japonés empieza aquí</h2>
 
     <!-- STEP 0: AI setup (skipped when an AI is already working) -->
     <div id="ob-step-ai" class="hidden">
@@ -295,14 +321,14 @@
           <svg class="icon"><use href="/static/icons.svg#sparkles"/></svg>
           <span><b>Mi suscripción de ChatGPT</b><br><small>Conecta mediante Codex usando tu cuenta. Sin clave API; sujeto a los límites de tu plan.</small></span>
         </button>
-        <div class="setup-opt" id="ob-opt-local">
+        <button type="button" class="setup-opt" id="ob-opt-local">
           <svg class="icon"><use href="/static/icons.svg#house"/></svg>
-          <div><b>Modelo local</b><br><small>Usa Ollama en tu ordenador. Descarga un modelo (1–5 GB); la velocidad depende de tu equipo.</small></div>
-        </div>
-        <div class="setup-opt" id="ob-opt-cloud">
+          <span><b>Modelo local</b><br><small>Usa Ollama en tu ordenador. Descarga un modelo (1–5 GB); la velocidad depende de tu equipo.</small></span>
+        </button>
+        <button type="button" class="setup-opt" id="ob-opt-cloud">
           <svg class="icon"><use href="/static/icons.svg#sparkles"/></svg>
-          <div><b>API en la nube</b><br><small>Conecta un proveedor con su clave API y facturación propia.</small></div>
-        </div>
+          <span><b>API en la nube</b><br><small>Conecta un proveedor con su clave API y facturación propia.</small></span>
+        </button>
       </div>
 
       <div id="ob-codex" class="hidden">
@@ -330,7 +356,7 @@
       <div id="ob-cloud" class="hidden">
         <label>Proveedor <select id="ob-provider"></select></label>
         <p id="ob-key-hint" class="sub"></p>
-        <label>Clave API <input id="ob-apikey" type="password" autocomplete="off" placeholder="Paste your Clave API"></label>
+        <label>Clave API <input id="ob-apikey" type="password" autocomplete="off" placeholder="Pega tu clave API"></label>
         <div class="modal-btns"><button class="btn primary" id="ob-cloud-save">Continuar ➤</button></div>
       </div>
 
@@ -342,15 +368,15 @@
       <p class="sub">Tu tutor se adapta a ti. Elige un punto de partida; podrás ajustarlo en cualquier momento.</p>
       <label>¿Cómo te llamas? <input id="ob-name" placeholder="Tu nombre"></label>
       <p class="sub">N5 es el punto de partida más sencillo; N1, el más avanzado. No necesitas haber aprobado el JLPT.</p>
-      <label>Tu nivel de japonés
-        <div class="level-row" id="ob-level">
+      <div class="level-label">Tu nivel de japonés
+        <div class="level-row" id="ob-level" role="group" aria-label="Tu nivel de japonés">
           <button data-l="N5">N5<br><small>Inicio</small></button>
           <button data-l="N4">N4</button>
           <button data-l="N3">N3</button>
           <button data-l="N2">N2</button>
           <button data-l="N1">N1<br><small>Avanzado</small></button>
         </div>
-      </label>
+      </div>
       <label>¿Qué temas te interesan? <input id="ob-interests" placeholder="tecnología, viajes, cocina, videojuegos…"></label>
       <label>¿Para qué quieres aprender? <input id="ob-goals" placeholder="conversar al viajar, entender vídeos, hablar con amigos…"></label>
       <p id="ob-profile-status" class="sub" role="status"></p>
@@ -365,5 +391,6 @@
 <script src="/static/qrcode.js"></script>
 <script src="/static/app.js"></script>
 <script src="/static/codex-voice.js"></script>
+<script src="/static/ux.js"></script>
 </body>
 </html>

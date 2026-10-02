@@ -69,7 +69,7 @@ Para conversaciones completamente locales necesitas instalar Ollama, descargar u
 
 ## Verificación E2E y evidencia
 
-La ejecución integrada final pasa **11 E2E**, incluido audio de entrada/salida con transcripciones e informe. Consulta [el registro de verificación y sus límites](docs/verification.md).
+La ejecución integrada de la UI renovada pasa **26 E2E**, incluido audio de entrada/salida con transcripciones e informe. Consulta [la revisión de UI/UX, identidad personalizada y evidencia](docs/ui-ux-review.md), con las revisiones de Opus 5.5 en high y los prompts de GPT Image. El [registro anterior de integración](docs/verification.md) conserva sus resultados y límites.
 
 Consulta [tests/e2e/README.md](tests/e2e/README.md) para requisitos y alcance detallados. Necesitas Node.js 22+, Playwright y Chrome, además de Codex con sesión ChatGPT. Usa siempre una **base de datos nueva y aislada** con datos sintéticos; nunca la base personal de `data/kaiwa.db`.
 
