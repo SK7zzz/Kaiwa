@@ -59,7 +59,7 @@ function show(view) {
     if (b.dataset.view === view) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
   });
-  const loaders = { home: loadHome, review: loadReview, vocab: loadVocab, progress: loadProgress, settings: loadSettings };
+  const loaders = { home: loadHome, companion: loadCompanion, review: loadReview, vocab: loadVocab, progress: loadProgress, settings: loadSettings };
   if (loaders[view]) runViewLoad(view, loaders[view]);
   if (view === "dict") $("#dict-search").focus();
   updateResumePill(view);

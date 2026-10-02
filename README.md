@@ -46,13 +46,23 @@ Un `.venv` existente con Python antiguo se conserva y produce un error explícit
 ## Tu recorrido de práctica
 
 1. Elige nombre, nivel N5–N1, intereses y objetivos. N5 es un punto de partida sencillo; no necesitas tener una certificación JLPT.
-2. Empieza con conversación libre, una lección, lectura o una situación de la vida real.
+2. Empieza con conversación libre, una lección, lectura o una situación de la vida real. En Inicio puedes elegir peluquería, música, gramática, vocabulario o escribir cualquier tema; selecciona una escena o una lección antes de empezar.
 3. Pide pistas o traducción al español cuando lo necesites; furigana y romaji se pueden activar.
 4. Guarda palabras útiles, repásalas y termina la sesión para obtener su informe en español. El tutor reutiliza tus palabras y errores recientes.
 
 **Conversación por voz** conecta GPT Live mediante WebRTC y la interfaz experimental `thread/realtime` de Codex. Necesita micrófono, audio habilitado, acceso a voz en tu cuenta y una CLI compatible. Las transcripciones disponibles se guardan para el informe. Que el texto o `/api/codex/status` funcione no demuestra por sí solo que la cuenta disponga de voz ni acredita la calidad de pronunciación; verifica una conversación completa. Esta vía puede cambiar con nuevas versiones de Codex.
 
 El diccionario contextual del tutor explica las palabras en español. El diccionario offline JMdict del proyecto original conserva definiciones japonés–inglés y se instala únicamente al optar por los recursos offline.
+
+## Asistente y memoria personal
+
+**Asistente** permite preparar una situación, preguntar dudas y organizar el aprendizaje en español. Usa el mismo proveedor seleccionado que el tutor; con Codex utiliza la sesión ChatGPT existente. No tiene acceso a archivos, herramientas externas ni conversaciones anteriores de ChatGPT. El inicio de sesión y la memoria de esta app son cosas distintas: [documentación oficial de Sign in with ChatGPT](https://developers.openai.com/cookbook/articles/sign-in-with-chatgpt).
+
+En **Tu memoria** puedes añadir, editar y olvidar hechos sobre ti, intereses, objetivos de aprendizaje y planes. El asistente propone recuerdos a partir de citas literales de lo que afirmas en su conversación. No extrae datos de los personajes que interpretas en las prácticas. Comprueba las propuestas: la selección del modelo puede omitir información o clasificarla mal. No es una garantía de extracción perfecta.
+
+Las conversaciones del asistente y las prácticas se conservan completas en SQLite y sus backups. El contexto de cada respuesta recupera una selección reciente y relevante, junto al perfil, vocabulario y errores; no carga todo el historial simultáneamente. Los recuerdos vigentes se usan en el asistente, el tutor escrito y las llamadas nuevas. Editar u olvidar inicia un contexto nuevo para no reutilizar frases antiguas que repitan el hecho; conserva las transcripciones. Una llamada ya abierta conserva su contexto inicial hasta colgar. Olvidar un recuerdo no borra backups antiguos, el perfil ni vocabulario guardado expresamente; si has escrito el mismo dato en esos lugares, corrígelo también.
+
+Kaiwa comparte con [Bunpro](https://bunpro.jp/support/using-bunpro) vocabulario, niveles JLPT, lectura y repaso espaciado. Este fork añade conversación y preparación de situaciones personales. No reproduce su catálogo de gramática ni su progresión completa por puntos, y no sincroniza tu cuenta Bunpro. Usarlos juntos permite repasar la estructura allí y practicar su uso aquí.
 
 ## Opciones explícitas
 
@@ -69,7 +79,7 @@ Para conversaciones completamente locales necesitas instalar Ollama, descargar u
 
 ## Verificación E2E y evidencia
 
-La ejecución integrada de la UI renovada pasa **26 E2E**, incluido audio de entrada/salida con transcripciones e informe. Consulta [la revisión de UI/UX, identidad personalizada y evidencia](docs/ui-ux-review.md), con las revisiones de Opus 5.5 en high y los prompts de GPT Image. El [registro anterior de integración](docs/verification.md) conserva sus resultados y límites.
+La ejecución integrada con asistente, memoria y prácticas por tema pasa **32 E2E**, incluido audio de entrada/salida con transcripciones e informe. La memoria se comprueba con conversaciones reales, edición/olvido y exportación/importación de backups modernos y antiguos. Consulta [la verificación actualizada](docs/verification.md). Consulta [la revisión de UI/UX, identidad personalizada y evidencia](docs/ui-ux-review.md), con las revisiones de Opus 5.5 en high y los prompts de GPT Image. El [registro anterior de integración](docs/verification.md) conserva sus resultados y límites.
 
 Consulta [tests/e2e/README.md](tests/e2e/README.md) para requisitos y alcance detallados. Necesitas Node.js 22+, Playwright y Chrome, además de Codex con sesión ChatGPT. Usa siempre una **base de datos nueva y aislada** con datos sintéticos; nunca la base personal de `data/kaiwa.db`.
 

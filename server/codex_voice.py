@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from . import db, jp, prompts
+from . import db, jp, memory, prompts
 from .codex_policy import tutor_config
 from .codex_provider import CodexError, validate_sandbox
 from .codex_voice_rpc import CodexVoiceConnection, VoiceConnectionError
@@ -42,6 +42,12 @@ async def _start_realtime(connection: CodexVoiceConnection, session: dict, sdp: 
     tutor_prompt = prompts.tutor_system_prompt(
         profile, "free_chat", None, db.recent_mistakes(), db.recent_vocab(),
     )
+    scenario = session.get("scenario") or {}
+    memory_query = " ".join(str(value or "") for value in (
+        scenario.get("title"), scenario.get("description"), scenario.get("setting"),
+        profile.get("interests"),
+    ))
+    tutor_prompt += memory.context(memory_query)
     thread = await connection.request("thread/start", {
         "model": "gpt-6-luna", "cwd": connection.cwd,
         "sandbox": "read-only", "approvalPolicy": "never",
@@ -52,7 +58,7 @@ async def _start_realtime(connection: CodexVoiceConnection, session: dict, sdp: 
     validate_sandbox(thread)
     thread_id = thread["thread"]["id"]
     history = [{"role": item["role"], "text": item["text"]}
-               for item in db.get_messages(session["id"])[-12:]]
+               for item in memory.practice_history(session["id"], limit=12)]
     await connection.request("thread/realtime/start", {
         "threadId": thread_id, "outputModality": "audio", "version": "v3",
         "voice": "sol", "transport": {"type": "webrtc", "sdp": sdp},

@@ -19,6 +19,7 @@
   <nav id="sidebar" aria-label="Navegación principal">
     <div class="logo"><img class="brand-mark" src="/static/brand/kaiwa-mark.png" alt="" width="48" height="48"><span class="brand-copy">Kaiwa<small>会話 · Tu japonés</small></span></div>
     <button class="nav-btn active" data-view="home" aria-current="page"><svg class="icon"><use href="/static/icons.svg#house"/></svg><em>Inicio</em></button>
+    <button class="nav-btn" data-view="companion" aria-label="Asistente personal"><svg class="icon"><use href="/static/icons.svg#messages-square"/></svg><em><span class="nav-full">Asistente</span><span class="nav-short">Guía</span></em></button>
     <button class="nav-btn" data-view="review"><svg class="icon"><use href="/static/icons.svg#layers"/></svg><em>Repaso</em> <span id="due-badge" class="badge hidden"></span></button>
     <button class="nav-btn" data-view="vocab" aria-label="Mis palabras"><svg class="icon"><use href="/static/icons.svg#book-open"/></svg><em><span class="nav-full">Mis palabras</span><span class="nav-short">Palabras</span></em></button>
     <button class="nav-btn" data-view="dict" aria-label="Diccionario"><svg class="icon"><use href="/static/icons.svg#languages"/></svg><em><span class="nav-full">Diccionario</span><span class="nav-short">Buscar</span></em></button>
@@ -73,6 +74,21 @@
       </div>
 
       <p id="session-start-error" class="session-start-error hidden" role="alert"></p>
+
+      <section class="topic-practice" aria-labelledby="topic-heading">
+        <div><p class="eyebrow">JAPONÉS PARA TU VIDA</p><h2 id="topic-heading">¿Qué necesitas practicar?</h2><p class="sub">Música, una cita en la peluquería, una estructura que se te resiste… Tú eliges el tema.</p></div>
+        <div class="topic-presets" aria-label="Ideas para practicar">
+          <button type="button" class="btn" data-topic="peluqueria"><svg class="icon"><use href="/static/icons.svg#scissors"/></svg> Peluquería</button>
+          <button type="button" class="btn" data-topic="musica"><svg class="icon"><use href="/static/icons.svg#guitar"/></svg> Música</button>
+          <button type="button" class="btn" data-topic="gramatica">Repasar gramática</button>
+          <button type="button" class="btn" data-topic="vocabulario">Aprender vocabulario</button>
+        </div>
+        <form id="topic-form">
+          <label for="practice-topic">Tu tema o situación</label><input id="practice-topic" maxlength="200" required placeholder="Mañana voy a cortarme el pelo y quiero explicar cómo lo quiero">
+          <div class="topic-actions"><label>Cómo practicar<select id="topic-mode"><option value="roleplay">Escena real</option><option value="lesson">Vocabulario y gramática</option></select></label><button id="topic-start" type="submit" class="btn primary">Practicar este tema →</button></div>
+        </form>
+        <button type="button" class="topic-coach-link" data-view-link="companion">Prepararlo primero con mi asistente →</button>
+      </section>
 
       <div class="practice-toolbar">
         <label for="practice-search">Encuentra tu próxima práctica</label>
@@ -157,6 +173,22 @@
       <div id="recent-sessions"></div>
       <h2 class="sect">Patrones que puedes mejorar</h2>
       <div id="mistake-cats"></div>
+    </section>
+
+    <section id="view-companion" class="view hidden">
+      <header class="companion-heading"><div><p class="eyebrow">TU ASISTENTE PERSONAL</p><h1>Un japonés que va contigo.</h1><p class="sub">Prepara situaciones, pregunta tus dudas y encuentra una forma de practicar que encaje con tu vida.</p></div><img src="/static/brand/study.webp" alt="" width="240" height="160"></header>
+      <div class="companion-tabs" role="group" aria-label="Espacios de tu asistente"><button type="button" id="companion-chat" aria-pressed="true">Conversación</button><button type="button" id="companion-memory" aria-pressed="false">Tu memoria</button></div>
+      <section id="companion-chat-panel" aria-label="Conversación con tu asistente">
+        <div id="companion-messages" role="log" aria-live="polite" aria-label="Mensajes del asistente"></div>
+        <div class="companion-suggestions"><button type="button" data-coach-prompt="Quiero repasar gramática con ejemplos sobre música. ¿Por dónde empezamos?">Gramática con música</button><button type="button" data-coach-prompt="Mañana voy a la peluquería. Ayúdame a preparar frases y vocabulario para explicar el corte.">Preparar la peluquería</button></div>
+        <form id="companion-form"><label for="companion-input">Cuéntame qué necesitas</label><textarea id="companion-input" rows="3" maxlength="4000" required placeholder="Me cuesta recordar esta estructura, quiero preparar una conversación, recuerda esto sobre mí…"></textarea><div class="companion-send-row"><p class="sub">Español para organizarte, japonés para practicar. Tu conversación queda guardada.</p><button id="companion-send" class="btn primary" type="submit">Enviar →</button></div></form>
+        <p id="companion-status" role="status" class="sub"></p>
+      </section>
+      <section id="companion-memory-panel" class="hidden" aria-label="Tu memoria personal">
+        <div class="memory-intro"><h2>Lo que tu asistente tiene presente</h2><p class="sub">Guarda lo importante sobre ti: música, gustos, objetivos y planes. Puedes corregir cada recuerdo. Los hechos vigentes se usan en el asistente y al practicar.</p><p class="sub" id="memory-history-count"></p><p class="sub">El historial completo se conserva en tu base local y sus copias de seguridad. El asistente recupera una selección relevante; recordar no significa releerlo todo en cada turno. Editar u olvidar renueva el contexto sin borrar el historial. Los cambios se aplican a las próximas respuestas de texto y a llamadas nuevas.</p></div>
+        <form id="memory-form"><div class="memory-form-heading"><label>Categoría<select id="memory-category"><option value="personal">Sobre mí</option><option value="intereses">Intereses</option><option value="aprendizaje">Aprendizaje</option><option value="planes">Planes</option></select></label><p class="sub">Sólo se guardan hechos que tú cuentes. Un personaje de una escena no define quién eres.</p></div><label for="memory-content">Qué quieres que recuerde</label><textarea id="memory-content" rows="3" maxlength="2000" required placeholder="La música es uno de mis intereses principales. Quiero practicar con ejemplos musicales."></textarea><div class="memory-form-actions"><button id="memory-save" class="btn primary" type="submit">Guardar recuerdo</button><button id="memory-cancel" class="btn hidden" type="button">Cancelar edición</button></div></form>
+        <p id="memory-status" role="status" class="sub"></p><div id="memory-list"></div>
+      </section>
     </section>
 
     <!-- SETTINGS -->
@@ -391,6 +423,7 @@
 <script src="/static/qrcode.js"></script>
 <script src="/static/app.js"></script>
 <script src="/static/codex-voice.js"></script>
+<script src="/static/personal.js"></script>
 <script src="/static/ux.js"></script>
 </body>
 </html>

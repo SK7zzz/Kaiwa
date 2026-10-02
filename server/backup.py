@@ -77,6 +77,7 @@ def restore_from(data: bytes) -> str | None:
             return "That database is missing Kaiwa's tables — is it really a Kaiwa backup?"
         snapshot_to(db.DB_PATH + ".pre-restore")  # safety copy of what's being replaced
         shutil.move(tmp, db.DB_PATH)
+        db.init()  # Existing backups acquire new optional tables without losing old rows.
         _sanitize_cross_platform()
         return None
     except Exception as e:  # noqa: BLE001 — surfaced to the user

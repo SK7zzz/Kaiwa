@@ -6,6 +6,7 @@ Aplicación local FastAPI + JavaScript sin framework. Mantener el stack y los fo
 
 - `server/codex_provider.py`: texto/JSON con el protocolo oficial Codex app-server.
 - `server/codex_voice_rpc.py` y `server/codex_voice.py`: conexión independiente de voz WebRTC y persistencia de transcripciones.
+- `server/memory.py` y `server/companion.py`: hechos personales, historial persistente y asistente; `web/personal.js` integra memoria y práctica por tema. La memoria pertenece a esta app, no a ChatGPT. Mantener la distinción entre datos reales y personajes de práctica; editar/olvidar invalida contexto histórico sin eliminar transcripciones.
 - `server/codex_policy.py`: límites compartidos del tutor. Conservar directorios temporales, threads efímeros, sandbox de solo lectura y herramientas/integraciones desactivadas.
 - Las credenciales pertenecen a Codex. No leer tokens, copiar cookies ni convertir esta integración en peticiones autenticadas con credenciales extraídas. El proveedor de suscripción elimina API keys heredadas de su entorno.
 - GPT Live es experimental. Confirmar cualquier cambio contra el esquema generado por la CLI instalada y documentación oficial.
@@ -20,6 +21,7 @@ Comprobaciones relevantes:
 .venv/bin/python -m unittest discover -s tests -p 'test_*.py'
 .venv/bin/python -m compileall -q server
 node --check web/app.js
+node --check web/personal.js
 node --check web/codex-voice.js
 bash -n run.sh setup.sh
 git diff --check

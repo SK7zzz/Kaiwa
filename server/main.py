@@ -17,7 +17,8 @@ import anyio
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
-from . import backup, codex_provider, db, dictionary, jp, llm, prompts, scenarios, setup, stt, tts
+from . import backup, codex_provider, db, dictionary, jp, llm, memory, prompts, scenarios, setup, stt, tts
+from .companion import CompanionBusyError, exclusive_operation, create_router as companion_router
 from .codex_voice import router as codex_voice_router
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -54,6 +55,9 @@ def llm_config() -> dict:
         "model": model,
         "key": (setting(f"api_key_{provider}") or "").strip() if info["needs_key"] else None,
     }
+
+
+app.include_router(companion_router(llm_config))
 
 
 @app.exception_handler(codex_provider.CodexError)
@@ -219,7 +223,8 @@ async def create_session(req: Request):
                 "id": "custom", "title": c.get("title", "Escena personalizada"),
                 "description": c.get("description", ""),
                 "ai_role": c.get("ai_role", ""), "user_role": c.get("user_role", ""),
-                "setting": c.get("setting", ""), "target_vocab": [], "kind": "roleplay",
+                "setting": c.get("setting", ""), "target_vocab": [], "kind": mode,
+                "objectives": [c.get("description", "Practicar el tema elegido")],
             }
             sid_key = "custom"
     elif mode == "story":
@@ -247,8 +252,8 @@ def session_messages(sid: int):
 
 
 def _history(sid: int, limit=16) -> list:
-    msgs = db.get_messages(sid)
-    return [{"role": m["role"], "content": m["text"]} for m in msgs[-limit:]]
+    msgs = memory.practice_history(sid, limit)
+    return [{"role": m["role"], "content": m["text"]} for m in msgs]
 
 
 async def _watch_disconnect(request: Request, cancellation: Event) -> None:
@@ -280,6 +285,8 @@ async def chat(req: Request):
         profile, session["mode"], session["scenario"],
         db.recent_mistakes(), db.recent_vocab(),
     )
+    scenario_context = json.dumps(session["scenario"] or {}, ensure_ascii=False)
+    system += "\n" + memory.context(text + " " + scenario_context)
 
     user_msg_id = None
     if text:
@@ -510,7 +517,12 @@ def backup_export():
 
 @app.post("/api/backup/import")
 async def backup_import(file: UploadFile = File(...)):
-    err = backup.restore_from(await file.read())
+    payload = await file.read()
+    try:
+        with exclusive_operation():
+            err = backup.restore_from(payload)
+    except CompanionBusyError as error:
+        return JSONResponse({"error": str(error)}, status_code=409)
     if err:
         return JSONResponse({"error": err}, status_code=400)
     return {"ok": True}
@@ -520,8 +532,11 @@ async def backup_import(file: UploadFile = File(...)):
 def reset_all_data():
     """Wipe everything back to a fresh install (debug / start over)."""
     try:
-        backup.reset_all()
+        with exclusive_operation():
+            backup.reset_all()
         return {"ok": True}
+    except CompanionBusyError as error:
+        return JSONResponse({"error": str(error)}, status_code=409)
     except Exception as e:
         return JSONResponse({"error": f"Reset failed: {e}"}, status_code=500)
 

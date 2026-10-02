@@ -61,6 +61,26 @@ CREATE TABLE IF NOT EXISTS mistakes (
     category TEXT,
     ts REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS personal_memories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,
+    content TEXT NOT NULL,
+    content_key TEXT NOT NULL UNIQUE,
+    source TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS companion_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+    text TEXT NOT NULL,
+    ts REAL NOT NULL,
+    exclude_context INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS memory_context_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    revoked_at REAL NOT NULL
+);
 """
 
 
@@ -195,7 +215,9 @@ def add_mistake(sid: int, err: dict):
 def recent_mistakes(limit=8) -> list:
     with _conn() as c:
         rows = c.execute(
-            "SELECT original, corrected, explanation, category FROM mistakes ORDER BY id DESC LIMIT ?",
+            "SELECT original, corrected, explanation, category FROM mistakes "
+            "WHERE ts>COALESCE((SELECT revoked_at FROM memory_context_state WHERE id=1), 0) "
+            "ORDER BY id DESC LIMIT ?",
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]

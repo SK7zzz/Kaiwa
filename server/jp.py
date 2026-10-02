@@ -195,6 +195,17 @@ def annotate(text: str) -> list:
 
 def _annotate_line(text: str) -> list:
     out = []
+    for fragment in re.split(r"(\s+)", text):
+        if fragment.isspace():
+            out.append({"surface": fragment, "ruby": [{"t": fragment, "r": None}],
+                        "reading": None, "pos": "空白", "word": False})
+        elif fragment:
+            out.extend(_annotate_fragment(fragment))
+    return out
+
+
+def _annotate_fragment(text: str) -> list:
+    out = []
     for surface, kana, pos in _tokenize(text):
         if not surface:
             continue
