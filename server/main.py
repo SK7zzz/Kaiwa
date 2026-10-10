@@ -20,7 +20,8 @@ from starlette.concurrency import run_in_threadpool
 from . import backup, codex_provider, db, dictionary, jp, llm, memory, prompts, scenarios, setup, story, stt, tts
 from .companion import CompanionBusyError, exclusive_operation, create_router as companion_router
 from .codex_voice import router as codex_voice_router
-from .security import CloudflareAccessMiddleware, configuration_from_environment
+from .security import (CloudflareAccessMiddleware, TailscaleConfiguration,
+                       TailscaleProxyMiddleware, configuration_from_environment)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web")
@@ -28,7 +29,9 @@ WEB = os.path.join(ROOT, "web")
 app = FastAPI(title="Kaiwa")
 access_configuration = configuration_from_environment()
 if access_configuration:
-    app.add_middleware(CloudflareAccessMiddleware, configuration=access_configuration)
+    authentication_middleware = (TailscaleProxyMiddleware if isinstance(access_configuration, TailscaleConfiguration)
+                                 else CloudflareAccessMiddleware)
+    app.add_middleware(authentication_middleware, configuration=access_configuration)
 app.include_router(codex_voice_router)
 db.init()
 backup.start_scheduler()

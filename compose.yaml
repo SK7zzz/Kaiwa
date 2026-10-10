@@ -18,16 +18,17 @@ services:
       KAIWA_DEPLOYMENT: production
       TZ: Asia/Tokyo
       KAIWA_PUBLIC_ORIGIN: ${KAIWA_PUBLIC_ORIGIN:?Set the HTTPS origin}
-      KAIWA_ACCESS_TEAM_DOMAIN: ${KAIWA_ACCESS_TEAM_DOMAIN:?Set the Cloudflare team domain}
-      KAIWA_ACCESS_AUD: ${KAIWA_ACCESS_AUD:?Set the Access application audience}
-      KAIWA_ALLOWED_EMAIL: ${KAIWA_ALLOWED_EMAIL:?Set the single allowed email}
+      KAIWA_AUTH_PROVIDER: ${KAIWA_AUTH_PROVIDER:-tailscale}
+      KAIWA_TAILSCALE_LOGIN: ${KAIWA_TAILSCALE_LOGIN:?Set the single Tailscale user login}
+      KAIWA_PROXY_SECRET_FILE: /run/secrets/proxy-secret
       KAIWA_VOICEVOX_URL: http://voicevox:50021
     volumes:
       - kaiwa-data:/app/data
       - kaiwa-codex:/home/kaiwa/.codex
       - kaiwa-backups:/home/kaiwa/Documents/Kaiwa Backups
     expose: ["8130"]
-    networks: [kaiwa-egress, kaiwa-speech]
+    secrets: [proxy-secret]
+    networks: [kaiwa-egress, kaiwa-speech, kaiwa-proxy]
     mem_limit: 1g
     cpus: 2.0
     pids_limit: 256
@@ -53,21 +54,23 @@ services:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
 
-  cloudflared:
-    image: ${CLOUDFLARED_IMAGE:?Set a pinned official cloudflared image with digest}
-    user: "65532:65532"
-    profiles: [tunnel]
+  tailscale-proxy:
+    image: ${KAIWA_PROXY_IMAGE:?Set the pinned official nginx image with digest}
+    user: "101:101"
     restart: unless-stopped
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
-    command: [tunnel, --no-autoupdate, --config, /etc/cloudflared/config.yml, run]
+    entrypoint: [nginx]
+    command: [-g, "daemon off;", -c, /etc/nginx/nginx.conf]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,uid=101,gid=101,mode=0700
     configs:
-      - source: tunnel-config
-        target: /etc/cloudflared/config.yml
-    secrets: [tunnel-credentials]
-    networks: [kaiwa-egress]
-    mem_limit: 256m
+      - source: tailscale-proxy-config
+        target: /etc/nginx/nginx.conf
+    ports: ["127.0.0.1:18130:8080"]
+    networks: [kaiwa-proxy]
+    mem_limit: 128m
     cpus: 0.5
     pids_limit: 64
     depends_on:
@@ -83,6 +86,9 @@ networks:
   kaiwa-speech:
     driver: bridge
     internal: true
+  kaiwa-proxy:
+    driver: bridge
+    internal: true
 
 volumes:
   kaiwa-data:
@@ -93,9 +99,9 @@ volumes:
     name: kaiwa-backups
 
 configs:
-  tunnel-config:
-    file: ${KAIWA_TUNNEL_CONFIG_FILE:?Set the absolute private tunnel configuration path}
+  tailscale-proxy-config:
+    file: ${KAIWA_PROXY_CONFIG_FILE:?Set the absolute private nginx configuration path}
 
 secrets:
-  tunnel-credentials:
-    file: ${KAIWA_TUNNEL_CREDENTIALS_FILE:?Set the absolute private tunnel credentials JSON path}
+  proxy-secret:
+    file: ${KAIWA_PROXY_SECRET_FILE:?Set the absolute private proxy secret path}

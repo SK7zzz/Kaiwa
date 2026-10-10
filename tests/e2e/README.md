@@ -327,3 +327,66 @@ y móvil, trazas y resultados JSON. Copia local de la pasada R3, fuera del repo:
 evidencia y eliminar únicamente los contenedores, redes y volúmenes de prueba
 que se acaban de crear; no usar limpieza global de Docker ni nombres de
 producción.
+
+## Autenticación mediante Tailscale Serve y proxy privado
+
+Los fallos se definieron primero en `tailscale-failures.md`. La suite nueva
+arranca una aplicación de producción real sobre loopback efímero, SQLite nuevo,
+login `owner-e2e@example.invalid` y secreto aleatorio de 256 bits. No usa el
+servidor personal ni inicia Codex, GPT Live o ningún modelo.
+
+```sh
+KAIWA_E2E_ARTIFACTS=/ruta/absoluta/evidencia-tailscale \
+node tests/e2e/tailscale-security-run.mjs
+```
+
+Requiere el Python del proyecto con dependencias instaladas; se puede indicar
+otro mediante `KAIWA_E2E_PYTHON`. Playwright se resuelve como en los recorridos
+anteriores. El runner limpia sus archivos y SQLite temporales al terminar.
+Los siete casos verifican denegaciones HTTP y WS para identidad falsificada,
+secreto incorrecto, cabeceras duplicadas e identidad ajena; Host, Origin y
+CSRF; liveness exclusivamente local; diez configuraciones inválidas; handshake
+WS autorizado; y memoria, snapshot/restauración y reinicio reales. El rechazo
+de cabeceras Host/Origin duplicadas puede producir 400 antes de ASGI; el
+middleware devuelve 403 cuando la petición llega hasta él.
+
+El archivo `KAIWA_PROXY_SECRET_FILE` contiene exactamente 64 caracteres hex
+minúsculos (32 bytes), con un salto de línea final opcional. La app exige un
+archivo regular sin enlace simbólico y carga el secreto una vez al arrancar.
+El proxy debe sobrescribir `X-Kaiwa-Proxy-Secret` y pasar la identidad inyectada
+por Tailscale Serve. Sólo permite el login configurado mediante comparación
+exacta: no acepta listas, cambio de mayúsculas ni repetición de cabeceras.
+El secreto se compara con `hmac.compare_digest`. Su rotación requiere recrear
+la app y el proxy con el mismo valor.
+
+Las peticiones de esta suite usan Node HTTP para conservar Host y mantener
+credenciales y bytes SQLite fuera de las trazas Playwright. El informe contiene
+únicamente resultados de casos, códigos HTTP/WS y tamaño/hash del snapshot;
+la base y el secreto no se adjuntan. Las trazas no acreditan un recorrido visual:
+estos E2E verifican transporte, autenticación y persistencia del servidor.
+
+Para comprobar que Cloudflare sigue funcionando, ejecutar también su suite
+independiente con proveedor explícito:
+
+```sh
+KAIWA_AUTH_PROVIDER=cloudflare \
+KAIWA_E2E_ARTIFACTS=/ruta/absoluta/evidencia-cloudflare-regresion \
+node tests/e2e/deploy-security-run.mjs
+```
+
+Esta suite sintética no acredita Tailscale Serve, nginx, TLS, las reglas del
+tailnet ni un cliente real. Esas comprobaciones se hacen sobre el despliegue
+Linux integrado. El host y los procesos locales capaces de alcanzar el proxy
+loopback forman parte de la frontera de confianza. La identidad WS se verifica
+al conectar: Tailscale no aporta aquí un JWT con expiración propia de la app.
+
+Comprobado el **11 de octubre de 2026, Asia/Tokyo**, mediante el agente principal:
+Tailscale **7/7** en **3,38 s**, Cloudflare **7/7** en **5,23 s**, sin omisiones
+ni reintentos. Evidencia fuera de Git:
+`work/deploy/tailscale-security-r2/report/index.html` y
+`work/deploy/cloudflare-regression-ts-r1/report/index.html` (relativas al workspace,
+no a la raíz del repo). La primera pasada Tailscale obtuvo 6/7 por una expectativa
+demasiado estricta de 403 ante Origin duplicado WS; el protocolo devuelve 400
+antes del middleware. Se corrigió únicamente esa expectativa, manteniendo las
+denegaciones y repitiendo los siete casos. Python compila los módulos cambiados;
+`node --check` y `git diff --check` pasan.
