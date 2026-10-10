@@ -180,6 +180,21 @@ el dominio final. Después se requieren arranque real y probes HTTP/WebSocket,
 seguido del recorrido del propietario con voz y streaming. Conservar salidas
 sanitizadas y evidencias; no adjuntar la credencial JSON ni headers/cookies.
 
+La pasada de preflight del 10 de octubre usó `/etc/kaiwa/tunnel/preflight.yml`,
+el equipo `adonain-dev` y un AUD sintético de 64 caracteres `a`; nunca debe
+usarse ese archivo para conectar producción. Los comandos de ingress anteriores
+se ejecutaron con la imagen fijada, `--network none` y ese archivo montado en
+`/etc/cloudflared/config.yml`. El JSON real sólo se abrió para comprobar permisos
+e identidad; no se imprimió su contenido. Repetir la lectura sin red:
+
+```sh
+docker --host unix:///var/run/docker.sock run --rm --network none \
+  --user 65532:65532 --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+  -v /etc/kaiwa/tunnel/credentials.json:/run/secrets/tunnel-credentials:ro \
+  --entrypoint python kaiwa:local -c \
+  'import json,os; d=json.load(open("/run/secrets/tunnel-credentials")); assert os.getuid()==65532; assert len(d["TunnelSecret"])>20; assert d["TunnelID"]; assert d["AccountTag"]'
+```
+
 Usar el certificado con los comandos oficiales `cloudflared tunnel create
 kaiwa-rushia` y `cloudflared tunnel route dns <UUID> kaiwa.adonain.dev`. Esto
 crea un túnel gestionado localmente y su credencial JSON; el certificado de

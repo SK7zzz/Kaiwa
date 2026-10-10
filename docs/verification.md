@@ -67,8 +67,9 @@ de ingress/rutas, lectura de credencial como UID 65532 y Compose sin puertos;
 se usó un AUD sintético y no se comprobó tráfico a través de Cloudflare.
 Tampoco se ha migrado la base personal ni verificado la descarga SSH de
 producción. La imagen final está construida y sus suites Linux indicadas están
-aprobadas y el código de esa pasada se subió en `4c607ed`; faltan los controles
-por el dominio final y la publicación de la configuración posterior del túnel.
+aprobadas y el código de esa pasada se subió en `4c607ed`. La configuración del
+conector y su evidencia de preflight se subieron en `0863952`; siguen pendientes
+los controles por el dominio final.
 
 ## Seguridad del origen — 10 de octubre de 2026, Asia/Tokyo
 
