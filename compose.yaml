@@ -69,7 +69,7 @@ services:
       - source: tailscale-proxy-config
         target: /etc/nginx/nginx.conf
     ports: ["127.0.0.1:18130:8080"]
-    networks: [kaiwa-proxy]
+    networks: [kaiwa-ingress, kaiwa-proxy]
     mem_limit: 128m
     cpus: 0.5
     pids_limit: 64
@@ -81,6 +81,8 @@ services:
       options: {max-size: "10m", max-file: "3"}
 
 networks:
+  kaiwa-ingress:
+    driver: bridge
   kaiwa-egress:
     driver: bridge
   kaiwa-speech:

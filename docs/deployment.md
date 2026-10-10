@@ -16,7 +16,7 @@ Serve escucha exclusivamente en las direcciones Tailscale de Rushia. **Funnel no
 
 Nginx publica sólo `127.0.0.1:18130` e inyecta un secreto aleatorio de 256 bits. Kaiwa comprueba ese secreto antes de confiar en la identidad. No se entrega al navegador ni al repositorio. Esto también impide que un contenedor ajeno falsifique la identidad accediendo directamente a Kaiwa. El host y su administrador son parte de la frontera de confianza.
 
-Kaiwa y VOICEVOX no publican puertos. `kaiwa-proxy` une sólo nginx y Kaiwa; `kaiwa-speech`, Kaiwa y VOICEVOX; ambas son internas. Kaiwa tiene una red separada para acceder a Codex. Se conservan Host/Origin, CSRF, protección WebSocket y headers de seguridad. No añadir dominios Dokploy, routers Traefik ni redes compartidas.
+Kaiwa y VOICEVOX no publican puertos. `kaiwa-proxy` une sólo nginx y Kaiwa; `kaiwa-speech`, Kaiwa y VOICEVOX; ambas son internas. Kaiwa tiene una red separada para acceder a Codex. El proxy tiene además `kaiwa-ingress`, una red bridge exclusiva necesaria para que Docker publique el puerto loopback; ningún otro servicio pertenece a ella. Se conservan Host/Origin, CSRF, protección WebSocket y headers de seguridad. No añadir dominios Dokploy, routers Traefik ni redes compartidas.
 
 ## Configuración y despliegue
 
