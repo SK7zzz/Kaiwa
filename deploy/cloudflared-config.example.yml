@@ -1,0 +1,17 @@
+# Render literal values in a private file outside Git; cloudflared does not
+# substitute the app's environment variables into this configuration.
+tunnel: REPLACE_WITH_TUNNEL_UUID
+credentials-file: /run/secrets/tunnel-credentials
+
+ingress:
+  - hostname: kaiwa.adonain.dev
+    service: http://kaiwa:8130
+    originRequest:
+      httpHostHeader: kaiwa.adonain.dev
+      access:
+        required: true
+        # Prefix only, without .cloudflareaccess.com.
+        teamName: REPLACE_WITH_ACCESS_TEAM_PREFIX
+        audTag:
+          - REPLACE_WITH_ACCESS_APPLICATION_AUDIENCE
+  - service: http_status:404

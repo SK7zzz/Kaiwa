@@ -58,14 +58,17 @@ Los helpers, el servicio de sistema, el timer y la configuración
 `/etc/kaiwa/compose-project` están instalados; el proyecto configurado es
 `kaiwa-private-imwlmy` y el timer permanece deshabilitado.
 
-Dokploy privado está instalado y verificado por Tailscale. **Cloudflare
-Access/Tunnel y `https://kaiwa.adonain.dev` siguen pendientes**. El login oficial
-Cloudflare caducó esperando Authorize; renovar esa autorización mediante el
-navegador requiere consentimiento en el momento de realizar la acción.
+Dokploy privado está instalado y verificado por Tailscale. El login oficial
+Cloudflare ya terminó y existe el túnel local `kaiwa-rushia`, sin DNS ni conexión
+activa. **Access y `https://kaiwa.adonain.dev` siguen pendientes**: el propietario
+debe completar el checkout de Zero Trust Free, que exige aceptar términos y
+autorizar posibles cargos por exceso. El conector pasó la validación oficial
+de ingress/rutas, lectura de credencial como UID 65532 y Compose sin puertos;
+se usó un AUD sintético y no se comprobó tráfico a través de Cloudflare.
 Tampoco se ha migrado la base personal ni verificado la descarga SSH de
 producción. La imagen final está construida y sus suites Linux indicadas están
-aprobadas; faltan los controles por
-el dominio final, además del cierre con commit/push.
+aprobadas y el código de esa pasada se subió en `4c607ed`; faltan los controles
+por el dominio final y la publicación de la configuración posterior del túnel.
 
 ## Seguridad del origen — 10 de octubre de 2026, Asia/Tokyo
 

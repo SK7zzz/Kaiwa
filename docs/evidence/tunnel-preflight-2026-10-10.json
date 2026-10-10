@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-10",
+  "state": "Blocked on owner activation of Cloudflare Zero Trust Free checkout",
+  "cli_login": "Official login succeeded; certificate mode 0600",
+  "tunnel": "kaiwa-rushia created; not connected; DNS not added",
+  "image": "cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07",
+  "checks": {
+    "official_ingress_validate": "OK",
+    "kaiwa_hostname_rule": "http://kaiwa:8130",
+    "unknown_hostname_rule": "http_status:404",
+    "tunnel_credentials_readable_as_uid_65532": true,
+    "tunnel_credentials_identity_matches_created_tunnel": true,
+    "compose_no_published_host_ports": true,
+    "speech_network_internal": true,
+    "connector_read_only_nonroot_capabilities_dropped": true
+  },
+  "conditions": "Rushia rootful Docker; network disabled for checks; synthetic Access AUD; no personal data or credentials included in evidence",
+  "reproduction": "docs/deployment.md, Activación de Cloudflare",
+  "not_verified": [
+    "Real Access application and policy",
+    "Connector startup and Cloudflare connections",
+    "Final HTTPS, WebSocket and voice through Access",
+    "Production migration and off-server backup download"
+  ]
+}

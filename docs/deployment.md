@@ -30,12 +30,22 @@ usaron loopback y datos sintéticos; **no acreditan el dominio HTTPS final,
 Cloudflare Access real ni migración
 de datos personales**.
 
-La zona `adonain.dev` no aparece en la cuenta accesible mediante el conector
-Cloudflare. El login oficial de `cloudflared` caducó esperando **Authorize**.
-Renovarlo requiere el consentimiento para realizar esa acción en el momento
-de ejecutarla mediante la automatización del navegador. Access, el túnel y el
-hostname final siguen pendientes; no se abrió una ruta pública alternativa
-para eludir ese requisito.
+La zona `adonain.dev` pertenece a otra cuenta que la del conector Cloudflare.
+El login oficial del CLI ya está completado en la cuenta correcta; su
+certificado tiene permisos `0600`. Se creó el túnel local `kaiwa-rushia`,
+sin arrancarlo ni añadir DNS. Su credencial específica está en un directorio
+privado del host, con propietario/grupo `root:65532` y modo `0440`.
+
+La cuenta no tiene un plan activo de Zero Trust. El checkout de Free muestra
+`$0/month`, pero exige aceptar términos y posibles cargos por superar los
+límites gratuitos. Se dejó abierto para que el propietario complete ese
+consentimiento de facturación. Access, DNS, conexión del túnel y HTTPS final
+siguen pendientes. No se publicó una ruta alternativa.
+
+La imagen oficial del conector validó ingress y las reglas de hostname;
+también se verificaron lectura del JSON como UID 65532 y Compose sin puertos
+publicados. Estas comprobaciones usaron un AUD sintético, sin red: no acreditan
+una aplicación Access real. [Evidencia del conector](evidence/tunnel-preflight-2026-10-10.json).
 
 ### Referencias de imágenes comprobadas
 
@@ -140,17 +150,61 @@ predeterminada y una única regla Allow para el correo del propietario. No añad
 reglas Bypass ni autorizar dominios de correo completos. Completar los datos
 reales en `.env` antes de arrancar la app en producción.
 
-Crear un túnel administrado y enrutar el hostname hacia `http://kaiwa:8130`.
-Configurar también **Protect with Access** en el conector, con validación
-obligatoria y el equipo/audiencia correctos. Mantener el Host público para que
-coincida con `KAIWA_PUBLIC_ORIGIN`. Confirmar compatibilidad de WebSocket y
-streaming SSE; no aplicar reglas que almacenen respuestas personales en caché.
+### Comprobaciones del conector antes de activar DNS
 
-El token del conector va en un archivo externo a Git, según
-`KAIWA_TUNNEL_TOKEN_FILE`. La carpeta del archivo debe ser privada (`0700`).
-Comprobar la lectura desde el usuario no root de la imagen: los secrets de
-Compose basados en archivos no garantizan remapeo de UID/GID/mode. No registrar
-el token ni activar logs debug del conector.
+Procedimiento definido antes del cambio de Compose a configuración y JSON:
+
+| Riesgo | Comprobación real y resultado exigido |
+| --- | --- |
+| Configuración o credencial ausente/ilegible | Compose o el conector aborta; no se publica ningún puerto alternativo |
+| Ingress inválido o sin regla final | `ingress validate` devuelve error |
+| Hostname dirigido al origen equivocado | La URL de Kaiwa coincide con su regla; otro hostname coincide con `http_status:404` |
+| Protección Access incompleta | Revisar `required: true`, equipo y AUD exactos; solicitud anónima y WebSocket sin JWT no llegan a la app |
+| JSON inaccesible para UID 65532 | El conector ejecutado como `65532:65532` inicia con el secret real sin error de lectura |
+| Host público perdido o sesión incorrecta | El propietario accede por HTTPS; una identidad ajena y un origen alternativo reciben denegación |
+
+Con la imagen oficial fijada y los archivos privados ya montados, ejecutar en
+el daemon rootful, sin iniciar los servicios dependientes:
+
+```sh
+docker --host unix:///var/run/docker.sock compose -p kaiwa-private-imwlmy --profile tunnel \
+  run --rm --no-deps cloudflared tunnel --config /etc/cloudflared/config.yml ingress validate
+docker --host unix:///var/run/docker.sock compose -p kaiwa-private-imwlmy --profile tunnel \
+  run --rm --no-deps cloudflared tunnel --config /etc/cloudflared/config.yml ingress rule https://kaiwa.adonain.dev/
+docker --host unix:///var/run/docker.sock compose -p kaiwa-private-imwlmy --profile tunnel \
+  run --rm --no-deps cloudflared tunnel --config /etc/cloudflared/config.yml ingress rule https://unmatched.invalid/
+```
+
+La validación estática de ingress no prueba la firma JWT, el acceso al JSON ni
+el dominio final. Después se requieren arranque real y probes HTTP/WebSocket,
+seguido del recorrido del propietario con voz y streaming. Conservar salidas
+sanitizadas y evidencias; no adjuntar la credencial JSON ni headers/cookies.
+
+Usar el certificado con los comandos oficiales `cloudflared tunnel create
+kaiwa-rushia` y `cloudflared tunnel route dns <UUID> kaiwa.adonain.dev`. Esto
+crea un túnel gestionado localmente y su credencial JSON; el certificado de
+cuenta sólo se utiliza para administrar recursos, nunca se monta en Kaiwa ni
+en el conector. El runtime usa exclusivamente el JSON de ese túnel y su
+configuración local, sin `--token-file`.
+
+Partir de `deploy/cloudflared-config.example.yml` y generar un archivo privado
+con valores literales reales. `KAIWA_TUNNEL_CONFIG_FILE` señala su ruta absoluta
+en el host; `KAIWA_TUNNEL_CREDENTIALS_FILE` señala el JSON. Dentro del contenedor,
+la configuración referencia `/run/secrets/tunnel-credentials`. No usar variables
+de entorno como placeholders del YAML: deben sustituirse antes de desplegar.
+
+La regla de `kaiwa.adonain.dev` enruta hacia `http://kaiwa:8130`, conserva el
+Host público y exige `originRequest.access.required: true`. `teamName` contiene
+sólo el prefijo del equipo, sin `.cloudflareaccess.com`; `audTag` contiene
+únicamente el AUD de la aplicación Access. Terminar con `http_status:404` para
+otros hostnames. Confirmar WebSocket y streaming SSE; no almacenar respuestas
+personales en caché.
+
+La carpeta privada del host debe tener permisos `0700`; preparar el JSON con
+propietario/grupo `root:65532` y modo `0440`, y la configuración con `root:root`
+y `0644`. El conector se ejecuta explícitamente como `65532:65532`. Comprobar
+su lectura efectiva: secrets/configs de Compose basados en archivos no
+garantizan remapeo de UID/GID/mode. No registrar el JSON ni activar logs debug.
 
 Sólo después de preparar Access y comprobar el origen protegido:
 
@@ -187,8 +241,8 @@ Dockerfile y lock dentro del contexto. Inspeccionar la composición efectiva
 antes del primer despliegue; no modificar la imagen ya comprobada sin repetir
 los recorridos afectados.
 
-El archivo del token del túnel debe estar en una ruta absoluta del host fuera
-del repositorio y de los logs. Activar `COMPOSE_PROFILES=tunnel` en las variables
+La configuración y el JSON del túnel deben estar en rutas absolutas del host
+fuera del repositorio y de los logs. Activar `COMPOSE_PROFILES=tunnel` en las variables
 de producción únicamente cuando Access y el túnel estén preparados. Preparar
 un recurso Compose en Dokploy no demuestra que la aplicación esté desplegada.
 

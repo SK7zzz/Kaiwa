@@ -55,13 +55,17 @@ services:
 
   cloudflared:
     image: ${CLOUDFLARED_IMAGE:?Set a pinned official cloudflared image with digest}
+    user: "65532:65532"
     profiles: [tunnel]
     restart: unless-stopped
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
-    command: [tunnel, --no-autoupdate, run, --token-file, /run/secrets/tunnel-token]
-    secrets: [tunnel-token]
+    command: [tunnel, --no-autoupdate, --config, /etc/cloudflared/config.yml, run]
+    configs:
+      - source: tunnel-config
+        target: /etc/cloudflared/config.yml
+    secrets: [tunnel-credentials]
     networks: [kaiwa-egress]
     mem_limit: 256m
     cpus: 0.5
@@ -88,6 +92,10 @@ volumes:
   kaiwa-backups:
     name: kaiwa-backups
 
+configs:
+  tunnel-config:
+    file: ${KAIWA_TUNNEL_CONFIG_FILE:?Set the absolute private tunnel configuration path}
+
 secrets:
-  tunnel-token:
-    file: ${KAIWA_TUNNEL_TOKEN_FILE:-.secrets/tunnel-token}
+  tunnel-credentials:
+    file: ${KAIWA_TUNNEL_CREDENTIALS_FILE:?Set the absolute private tunnel credentials JSON path}
