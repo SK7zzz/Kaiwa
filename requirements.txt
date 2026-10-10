@@ -7,3 +7,4 @@ janome
 pykakasi
 requests
 python-multipart
+PyJWT[crypto]==2.15.1

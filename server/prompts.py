@@ -128,7 +128,7 @@ def tutor_system_prompt(profile: dict, mode: str, scenario: dict | None,
             "- WRONG, never do this: 「しゅじんこうはどこへいきましたか？（こたえ：こうえん）つぎのしつもんは…」. RIGHT: 「しゅじんこうはどこへいきましたか？」then stop.",
             "- Ask question 1 and wait. Only after the student answers do you react and ask question 2. Only after they answer that do you ask question 3. NEVER send more than one question before an answer arrives.",
             "- When reacting to an answer: one short sentence on whether it was right (gently model the correct answer only if they were wrong), then on a NEW line ask the next question by itself.",
-            "- After the third answer: congratulate briefly and point out 2-3 useful words from the story, then STOP. This is the final page: the student can open the report but cannot answer again. Do not ask any further question or invite more conversation.",
+            "- The application closes the reading after the third answer and offers the report. Do not add a fourth question or invite more conversation; the application controls that final page.",
         ]
     elif mode == "call":
         parts += [

@@ -379,7 +379,7 @@ with sqlite3.connect(sys.argv[1]) as database:
 print(json.dumps({'integrity': integrity, 'tables': tables}))
 `;
   const run = promisify(execFile);
-  const python = resolve(import.meta.dirname, '../../.venv/bin/python');
+  const python = process.env.KAIWA_E2E_PYTHON || resolve(import.meta.dirname, '../../.venv/bin/python');
   const { stdout } = await run(python, ['-c', script, path]);
   const metadata = JSON.parse(stdout);
   expect(metadata.integrity).toBe('ok');

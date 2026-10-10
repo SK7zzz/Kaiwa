@@ -17,14 +17,18 @@ import anyio
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
-from . import backup, codex_provider, db, dictionary, jp, llm, memory, prompts, scenarios, setup, stt, tts
+from . import backup, codex_provider, db, dictionary, jp, llm, memory, prompts, scenarios, setup, story, stt, tts
 from .companion import CompanionBusyError, exclusive_operation, create_router as companion_router
 from .codex_voice import router as codex_voice_router
+from .security import CloudflareAccessMiddleware, configuration_from_environment
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WEB = os.path.join(ROOT, "web")
 
 app = FastAPI(title="Kaiwa")
+access_configuration = configuration_from_environment()
+if access_configuration:
+    app.add_middleware(CloudflareAccessMiddleware, configuration=access_configuration)
 app.include_router(codex_voice_router)
 db.init()
 backup.start_scheduler()
@@ -81,6 +85,11 @@ app.mount("/static", StaticFiles(directory=WEB), name="static")
 
 
 # ------------------------------------------------------------------- health
+
+@app.get("/healthz", include_in_schema=False)
+def liveness():
+    return {"status": "ok"}
+
 
 @app.get("/api/health")
 def health():
@@ -273,6 +282,8 @@ async def chat(req: Request):
     session = db.get_session(sid)
     if not session:
         return JSONResponse({"error": "no such session"}, status_code=404)
+    if session["mode"] == "story" and story.is_complete(db.get_messages(sid)):
+        return JSONResponse({"error": "La lectura ya está completada. Abre el informe para terminar."}, status_code=409)
     cfg = llm_config()
     err = await run_in_threadpool(llm.not_ready_reason, cfg)
     if err:
@@ -292,6 +303,12 @@ async def chat(req: Request):
     if text:
         user_msg_id = db.add_message(sid, "user", text)
 
+    completion = None
+    if session["mode"] == "story":
+        reading_messages = db.get_messages(sid)
+        completion = story.completion_reply(reading_messages)
+        if completion is None:
+            system += story.turn_instruction(reading_messages)
     messages = [{"role": "system", "content": system}] + _history(sid)
     if not text and not db.get_messages(sid):
         opener = ("(Begin now: write the story — Japanese title on the first line, then the story, "
@@ -305,7 +322,8 @@ async def chat(req: Request):
         yield f"data: {json.dumps({'user_message_id': user_msg_id})}\n\n"
         full = []
         try:
-            for delta in llm.chat_stream(messages, cfg):
+            deltas = [completion] if completion is not None else llm.chat_stream(messages, cfg)
+            for delta in deltas:
                 full.append(delta)
                 yield f"data: {json.dumps({'delta': delta})}\n\n"
         except Exception as e:
@@ -323,6 +341,8 @@ async def chat(req: Request):
             "tokens": jp.annotate(reply),
             "romaji": jp.romaji(reply),
         }
+        if session["mode"] == "story":
+            final["story_complete"] = completion is not None
         yield f"data: {json.dumps(final)}\n\n"
 
     async def gen():
@@ -563,10 +583,10 @@ def api_tts(text: str, voice: str = "", speed: float = 1.0, intonation: float | 
     into = intonation if intonation is not None else float(setting("intonation") or 1.0)
     try:
         wav = tts.synthesize(text, v, speed, into)
-    except Exception:
-        wav = tts.synthesize(text, "say:Kyoko", speed)  # engine fallback
-    if not wav:
-        return JSONResponse({"error": "tts failed"}, status_code=500)
+    except tts.SpeechUnavailableError as error:
+        return JSONResponse({"error": str(error)}, status_code=503)
+    except ValueError as error:
+        return JSONResponse({"error": str(error)}, status_code=422)
     return Response(content=wav, media_type="audio/wav",
                     headers={"Cache-Control": "max-age=86400"})
 

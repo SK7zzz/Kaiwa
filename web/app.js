@@ -645,12 +645,73 @@ async function translateMsg(mid, aiDiv) {
   scrollDown();
 }
 
-function playTTS(text, speed) {
+function speechStatus(message, retry) {
+  let status = $("#tts-status");
+  if (!status) {
+    status = document.createElement("div");
+    status.id = "tts-status";
+    status.className = "view-status error hidden";
+    status.setAttribute("role", "alert");
+    $("#main").prepend(status);
+  }
+  status.replaceChildren();
+  status.classList.toggle("hidden", !message);
+  if (!message) return;
+  const explanation = document.createElement("p");
+  explanation.textContent = message;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn";
+  button.textContent = "Reintentar lectura";
+  button.onclick = retry;
+  status.append(explanation, button);
+}
+
+async function speechAudio(text, speed, voice, intonation) {
+  const query = new URLSearchParams({ text, speed: String(speed), voice });
+  if (intonation !== undefined) query.set("intonation", String(intonation));
+  const response = await fetch(`/api/tts?${query}`);
+  if (!response.ok) {
+    const failure = await response.json().catch(() => ({}));
+    throw new Error(failure.error || "No se pudo generar la voz japonesa. Reintenta.");
+  }
+  const source = URL.createObjectURL(await response.blob());
+  const audio = new Audio(source);
+  const release = () => URL.revokeObjectURL(source);
+  audio.addEventListener("ended", release, { once: true });
+  audio.addEventListener("error", release, { once: true });
+  audio.addEventListener("pause", release, { once: true });
+  return audio;
+}
+
+async function playSpeechAudio(audio) {
+  try {
+    await audio.play();
+  } catch (error) {
+    URL.revokeObjectURL(audio.src);
+    throw error;
+  }
+}
+
+let speechRequest = 0;
+async function playTTS(text, speed) {
+  const request = ++speechRequest;
   if (state.audio) { state.audio.pause(); state.audio = null; }
+  if (previewAudio) { previewAudio.pause(); previewAudio = null; }
   const s = (state.settings.speed || 1.0) * speed;
-  const v = encodeURIComponent(state.settings.voice || "");
-  state.audio = new Audio(`/api/tts?text=${encodeURIComponent(text)}&speed=${s}&voice=${v}`);
-  state.audio.play().catch(() => {});
+  speechStatus("");
+  try {
+    const audio = await speechAudio(text, s, state.settings.voice || "");
+    if (request !== speechRequest) { URL.revokeObjectURL(audio.src); return; }
+    state.audio = audio;
+    await playSpeechAudio(audio);
+  } catch (error) {
+    if (request !== speechRequest) return;
+    const message = error.name === "NotAllowedError"
+      ? "El navegador bloqueó la reproducción automática. Pulsa Reintentar lectura para escuchar."
+      : error.message || "No se pudo reproducir la voz japonesa. Reintenta.";
+    speechStatus(message, () => playTTS(text, speed));
+  }
 }
 
 /* corrections (async, after user message) */
@@ -733,6 +794,7 @@ async function showSessionSummary() {
   $("#sum-back").onclick = () => $("#summary-modal").classList.add("hidden");
   let s;
   try {
+    if (state.session.mode === "story") await Promise.all(reader.pendingCorrections);
     s = await api.post(`/api/sessions/${state.session.session_id}/end`);
     if (s.error) throw new Error(s.error);
   } catch (error) {
@@ -772,7 +834,7 @@ async function showSessionSummary() {
 /* Story mode renders as book pages instead of chat bubbles: page 1 is the
    story itself, each quiz turn becomes the next page. Same /api/chat session
    underneath, so resume, reports, and corrections all keep working. */
-const reader = { pages: [], cur: 0 };
+const reader = { pages: [], cur: 0, pendingCorrections: [] };
 
 /* Hiragana-only stories: the local model sometimes slips katakana in anyway.
    Convert it deterministically at render time so beginners never hit kana they
@@ -791,7 +853,7 @@ function openReader(res) {
   $("#reader-title").textContent = scen.title || "Lectura en japonés";
   $("#reader-sub").textContent =
     ({ hiragana: "Solo ひらがな", katakana: "Practicar カタカナ", stretch: "Más kanji" })[scen.script] || "";
-  reader.pages = []; reader.cur = 0;
+  reader.pages = []; reader.cur = 0; reader.pendingCorrections = [];
   $("#reader-pages").innerHTML = "";
   $("#reader-nav").classList.add("hidden");
   $("#rd-furigana").checked = state.settings.furigana !== false;
@@ -826,7 +888,7 @@ function addReaderPage(type) {
     // story is page 0; quiz pages 1-3 are the questions, 4 is the wrap-up
     const n = reader.pages.length;
     const label = n <= 3 ? `Pregunta ${n} <span class="of">/ 3</span>`
-      : n === 4 ? `${icon("party-popper")} ¡Lectura completada!`
+      : n === 4 ? "Preparando el cierre…"
       : `${icon("message-circle")} Conversación`;
     div.innerHTML = `
       <div class="quiz-label">${label}</div>
@@ -872,7 +934,7 @@ async function readerStream(text, page, correctEl) {
   let started = false;
   try {
     await streamChat(text, {
-      onUser: mid => { if (correctEl) queueCorrection(mid, correctEl); },
+      onUser: mid => { if (correctEl) reader.pendingCorrections.push(queueCorrection(mid, correctEl)); },
       onError: msg => { body.textContent = "⚠️ " + msg; },
       onDelta: raw => {
         if (!started) { body.textContent = ""; started = true; }
@@ -927,7 +989,10 @@ function finishReaderPage(page, ev, raw) {
       readerStream("はい、クイズをおねがいします！", addReaderPage("quiz"));
     }, { once: true });
   } else {
-    if (reader.pages.indexOf(page) === 4) {     // wrap-up page: offer the report
+    const completed = ev.story_complete === true ||
+      (ev.story_complete === undefined && reader.pages.indexOf(page) === 4);
+    if (completed) {
+      $(".quiz-label", page).innerHTML = `${icon("party-popper")} ¡Lectura completada!`;
       const after = $(".quiz-after", page);
       after.innerHTML = `<button class="btn primary rd-finish">${icon("clipboard-list")} Terminar y ver informe</button>`;
       $(".rd-finish", after).addEventListener("click", showSessionSummary);
@@ -1537,6 +1602,9 @@ async function loadSettings() {
   $("#set-voice").innerHTML = v.voices.map(x =>
     `<option value="${x.id}" ${x.id === cur ? "selected" : ""}>${x.label} (${x.engine})</option>`).join("");
   $("#aivis-hint").classList.toggle("hidden", v.voices.some(x => x.engine === "AivisSpeech"));
+  $("#voicevox-credit").classList.toggle("hidden", !v.voices.some(x => x.engine === "VOICEVOX"));
+  $("#voice-preview").disabled = !v.voices.length;
+  if (!v.voices.length) $("#set-voice").innerHTML = '<option value="">Lectura de voz no disponible</option>';
 
   $("#set-speed").value = p.settings.speed || 1.0;
   $("#speed-val").textContent = `${$("#set-speed").value}×`;
@@ -1648,18 +1716,26 @@ $("#set-speed").addEventListener("input", () => $("#speed-val").textContent = `$
 $("#set-intonation").addEventListener("input", () => $("#intonation-val").textContent = `${$("#set-intonation").value}×`);
 /* voice preview: speak a sample with the currently selected (unsaved) voice + sliders */
 let previewAudio = null;
-$("#voice-preview").addEventListener("click", () => {
+$("#voice-preview").addEventListener("click", async () => {
+  const request = ++speechRequest;
   const btn = $("#voice-preview");
+  if (state.audio) { state.audio.pause(); state.audio = null; }
   if (previewAudio) { previewAudio.pause(); previewAudio = null; }
   const v = $("#set-voice").value;
   const s = parseFloat($("#set-speed").value) || 1.0;
   const i = parseFloat($("#set-intonation").value) || 1.0;
   btn.innerHTML = icon("loader", "spin");
   const reset = () => { btn.innerHTML = icon("volume-2"); };
-  previewAudio = new Audio(`/api/tts?text=${encodeURIComponent("こんにちは、カイワです。よろしくお願いします！")}&speed=${s}&intonation=${i}&voice=${encodeURIComponent(v)}`);
-  previewAudio.addEventListener("playing", reset);
-  previewAudio.addEventListener("error", reset);
-  previewAudio.play().catch(reset);
+  speechStatus("");
+  try {
+    const audio = await speechAudio("こんにちは、カイワです。よろしくお願いします！", s, v, i);
+    if (request !== speechRequest) { URL.revokeObjectURL(audio.src); return; }
+    previewAudio = audio;
+    await playSpeechAudio(previewAudio);
+  } catch (error) {
+    if (request !== speechRequest) return;
+    speechStatus(error.message || "No se pudo reproducir esta voz. Reintenta.", () => btn.click());
+  } finally { reset(); }
 });
 $("#set-level").addEventListener("click", e => {
   const btn = e.target.closest("button"); if (!btn) return;

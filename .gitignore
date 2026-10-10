@@ -1,5 +1,10 @@
 # ---- user data: profile, API keys, chat history, backups — NEVER commit
 /data/
+*.db
+*.db-*
+*.db.*
+*.sqlite
+*.sqlite3
 
 # ---- large downloaded assets (fetched by setup.sh / the in-app wizard)
 /models/
@@ -20,3 +25,9 @@ __pycache__/
 *.log
 /work/
 /tests/e2e/artifacts/
+
+# Production settings and Cloudflare connector credentials stay outside Git.
+.env
+.env.*
+!.env.example
+/.secrets/

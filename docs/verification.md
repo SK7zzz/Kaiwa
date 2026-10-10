@@ -1,5 +1,218 @@
 # Verificación de la adaptación personal
 
+## Estado Linux integrado — 10 de octubre de 2026, Asia/Tokyo
+
+La imagen final reconstruida es
+`sha256:3e2dd66c081bf212b54a5e2788df67890350ef42549b7accd4308e061d0f9339`.
+Sobre ella pasan **8/8 TTS en 14,2 segundos**, **7/7 seguridad en 14,3 segundos**,
+**2/2 GPT Live en 34,7 segundos** y **15/15 recorridos integrados en 3,7 minutos**,
+sin casos omitidos. La suite integrada incluye el lector corregido, cuyo caso
+pasó en 47,7 segundos. Evidencia remota bajo
+`/home/ado/.local/share/kaiwa-deploy/evidence/`:
+
+- `tts-final-e2e-r2/report/index.html`.
+- `security-final-e2e/report/index.html`.
+- `voice-final-e2e/report/index.html`.
+- `integrated-final-e2e/report/index.html`.
+
+Los resultados de la tabla siguiente corresponden a las pasadas anteriores,
+conservadas como evidencia.
+
+Se construyó Kaiwa en Rushia y se verificaron Node 24.21.0, Python 3.12.15,
+Codex CLI 0.159.3 y usuario de contenedor 1000. El login oficial de ChatGPT
+está completado en el volumen rootful persistente `kaiwa-codex`; no se copiaron
+credenciales del Mac. Docker rootful, usado por Dokploy, y el daemon rootless
+del usuario `ado` mantienen imágenes y volúmenes independientes.
+
+Las pasadas Linux siguientes usaron instancias temporales por loopback y datos
+sintéticos. Los cuatro `result.json` de UI, seguridad, voz y migración fueron
+comprobados: no contienen omitidos, fallos inesperados ni reintentos exitosos.
+
+| Recorrido | Resultado | Duración | Evidencia local fuera del repo |
+| --- | --- | --- | --- |
+| UI escritorio/móvil, navegación, formularios y errores recuperables | 15/15 | 50,832 s | `work/deploy/ui-e2e/ui-e2e/report/index.html` |
+| JWT/Host/Origin, configuración, expiración de voz y persistencia | 7/7 | 14,286 s | `work/deploy/security-linux/report/index.html` |
+| GPT Live: audio real, transcripción, controles, cierre y permiso denegado | 2/2 | 36,268 s | `work/deploy/voice-e2e/voice-e2e/report/index.html` |
+| Backup: memoria/historial exactos y migración de esquema antiguo | 1/1 | 2,211 s | `work/deploy/backup-migration-r2/backup-migration-r2/report/index.html` |
+| VOICEVOX real y reproducción en navegador | 6/6 | 15,832 s | `work/deploy/tts-e2e-r3/tts-e2e-r3/report/index.html` |
+
+GPT Live utiliza micrófono sintético y proveedor real; comprueba voz japonesa
+en ambos sentidos, transcripciones y cierre persistente. Acredita el recorrido
+Linux por loopback, sin evaluar un micrófono/altavoz físico ni el dominio final.
+La UI cubre 320/390 px y escritorio, IME japonés, foco/teclado y recuperación
+de errores HTTP representados en el cliente; esos negativos no acreditan una
+caída real del proveedor. Los procedimientos están en
+[E2E repetibles](../tests/e2e/README.md).
+
+También **pasó** el E2E final real Docker/Compose de helpers de backup rootful.
+Creó proyectos y volúmenes aislados, añadió servicios distractores, exportó
+un snapshot consistente privado, restauró perfil/memoria y comprobó su
+persistencia tras reiniciar. Ambos helpers rechazaron proyecto ausente,
+selección duplicada y socket incorrecto. La ampliación final aprobó selección
+exacta desde archivo de proyecto, archivo ausente/malformado y prioridad de la
+variable explícita. No montó datos de producción ni usó IA.
+Evidencia remota:
+`/home/ado/.local/share/kaiwa-deploy/evidence/backup-rootful-final-e2e/result.json`.
+Procedimiento: [backups rootful](deployment.md#migración-backups-y-rollback).
+Los helpers, el servicio de sistema, el timer y la configuración
+`/etc/kaiwa/compose-project` están instalados; el proyecto configurado es
+`kaiwa-private-imwlmy` y el timer permanece deshabilitado.
+
+Dokploy privado está instalado y verificado por Tailscale. **Cloudflare
+Access/Tunnel y `https://kaiwa.adonain.dev` siguen pendientes**. El login oficial
+Cloudflare caducó esperando Authorize; renovar esa autorización mediante el
+navegador requiere consentimiento en el momento de realizar la acción.
+Tampoco se ha migrado la base personal ni verificado la descarga SSH de
+producción. La imagen final está construida y sus suites Linux indicadas están
+aprobadas; faltan los controles por
+el dominio final, además del cierre con commit/push.
+
+## Seguridad del origen — 10 de octubre de 2026, Asia/Tokyo
+
+Pasan **7 E2E**, sin reintentos ni casos omitidos, en **5,394 segundos**. La
+prueba arranca FastAPI/Uvicorn en un puerto loopback efímero, con SQLite nueva,
+modo producción y JWT/JWKS sintéticos servidos sobre HTTPS. No usa el servidor
+personal en 8130, no importa datos personales ni inicia Codex.
+
+Comando ejecutado desde la raíz del repositorio:
+
+```sh
+KAIWA_E2E_ARTIFACTS=/Users/ado/Documents/Codex/2026-09-25/hay/work/deploy-security-2026-10-10-r2 node tests/e2e/deploy-security-run.mjs
+```
+
+Entorno comprobado: macOS, Node 24.14.1, Python 3.12.14 y Playwright 1.62.1.
+Para ejecutar producción se instalaron PyJWT 2.15.1, cryptography 50.0.2,
+cffi 2.1.1 y pycparser 3.11 en `.venv`. Esas son las versiones de esta pasada;
+las dependencias fijadas de la imagen Linux se deben verificar por separado.
+
+Cobertura comprobada:
+
+- HTML, estáticos, documentación, API, exportación y WebSocket rechazan acceso
+  anónimo y headers de identidad sin JWT firmado.
+- Firma, algoritmo, emisor, audiencia, correo, vigencia, `nbf`, claims
+  obligatorios y key ID desconocido se verifican contra el JWKS HTTPS real de
+  la fixture. Un token válido accede y conserva headers de privacidad.
+- Host alternativo y mutaciones con Origin ausente/ajeno o `Sec-Fetch-Site`
+  cross-site devuelven denegación sin modificar el perfil.
+- `/healthz` local devuelve sólo el estado; los headers que representan un
+  proxy impiden eludir la autorización.
+- Cada variable de identidad ausente impide construir la aplicación.
+- Una voz conectada sin SDP cierra con código 1008 al expirar un token de tres
+  segundos; ese token deja también de autorizar HTTP. No se inicia el proveedor.
+- Perfil y memoria se guardan, el snapshot SQLite restaura el contenido exacto
+  y ambos sobreviven al reinicio del proceso con la misma base.
+
+La primera ejecución dejó 4 aprobados y 3 fallidos: el `fetch` de Node eliminaba
+el Host público al conectar con loopback y el origen lo rechazaba correctamente.
+Se confirmó el header saliente y se corrigió únicamente el transporte del
+harness para usar `node:http`. El informe inicial se conserva en
+`work/deploy-security-2026-10-10`; la pasada final está en
+`work/deploy-security-2026-10-10-r2`, ambos fuera del repositorio.
+
+Evidencia final: `report/index.html`, `result.json`, trazas en `results/` y
+adjuntos de denegaciones, validación JWT, configuración, expiración de voz y
+backup/persistencia. Los adjuntos de backup contienen tamaño y SHA-256 del
+snapshot sintético; no incluyen SQLite, tokens, claves privadas ni credenciales.
+El runner elimina sus bases y certificados temporales al terminar.
+
+Esta pasada macOS **no acredita Docker, Cloudflare Access/Tunnel real, login de
+Google, GPT Live activo al expirar la autorización, audio VOICEVOX Linux ni un
+móvil físico**. El reinicio comprobado es del proceso con SQLite persistente;
+la recreación del contenedor y sus volúmenes necesita su propio recorrido. El
+build y recorridos Linux comprobados están registrados por separado arriba.
+Acceso final y cierre con commit/push siguen pendientes.
+
+## Lectura japonesa en Linux — 10 de octubre de 2026, Asia/Tokyo
+
+Pasan **6 E2E**, cero omitidos y cero reintentos, en **15,832 segundos**,
+contra una instancia temporal de la imagen Linux en Rushia, con SQLite y
+volúmenes de prueba independientes. Se ejecutó Chromium **151.0.7922.34** con
+Playwright **1.62.1**, Node **24.21.0** y Python del contenedor **3.12.15**
+sobre Linux. La imagen `kaiwa:local` comprobada tiene ID
+`sha256:760c4e02e636eb977ca44d96373965cf47a92305f74b7ab04e21513f00bef703`. No se usó la base personal ni el servidor del Mac en 8130,
+no se copiaron credenciales y no se consumió cuota de Codex/GPT Live.
+
+El modo local se habilitó únicamente en el contenedor temporal de pruebas,
+publicado en `127.0.0.1:18133`, sin túnel. No se desactivó la autorización de
+producción. El [procedimiento repetible](../tests/e2e/README.md#lectura-japonesa-real-en-linux)
+describe sus volúmenes nuevos, motor real y acceso mediante SSH.
+
+Cobertura y evidencia comprobadas:
+
+- VOICEVOX CPU genera un WAV japonés válido con `vv:8`: **2,805 segundos** a
+  velocidad 1 y **3,989 segundos** a velocidad 0,7. El WAV normal tiene
+  **134.700 bytes**; repetir la petición devuelve los mismos bytes.
+- El backend declara `system: "Linux"` y un perfil migrado con `say:Kyoko`
+  obtiene audio japonés mediante el motor disponible.
+- Texto vacío tras limpiar formato, voz inválida y velocidad fuera de rango
+  devuelven `422`. Un estilo inexistente del motor devuelve `503` con mensaje
+  explícito, sin intentar ejecutar utilidades de macOS.
+- «Escuchar» y la muestra de Ajustes reproducen audio real en Chromium a
+  **1440 y 390 px**. Los eventos `playing` registran **2,805 y 3,627 segundos**
+  de audio; no se sustituye `Audio` por un reproductor simulado.
+- Un `503` representado sólo en el navegador muestra el error; Reintentar
+  recupera la reproducción real. Este negativo acredita el cliente, no una
+  caída real del servicio VOICEVOX.
+- Se revisaron las capturas finales de escritorio y móvil: selector y botón
+  de muestra son accesibles, el crédito de VOICEVOX es visible y el nombre
+  japonés largo queda truncado dentro del selector móvil sin ensanchar la página.
+
+Evidencia final fuera del repositorio:
+`work/deploy/tts-e2e-r3/tts-e2e-r3/report/index.html`, `result.json`, trazas y
+adjuntos WAV/capturas/métricas. SHA-256 del WAV sintético normal:
+`5b1e31135aaddc37af057652e0514034cdaa537009651ff69a3a07b4ae122432`.
+
+La primera ejecución local no pudo iniciar Chrome por un fallo del sandbox
+macOS (`SIGABRT`). En Linux faltaba inicialmente el navegador requerido por
+Playwright; se instaló Chromium antes de la pasada final. El entrypoint del
+contenedor oficial VOICEVOX intentaba ejecutar `gosu` y fallaba con todas las
+capacidades eliminadas: se corrigió el arranque a usuario `1000:1000`, ejecutable
+`/opt/voicevox_engine/run` y argumento `--host 0.0.0.0`. La pasada final usa ese
+motor sin privilegios; no se añadieron capacidades para obtener un resultado
+verde.
+
+Este recorrido acredita generación y reproducción por navegador, no la calidad
+fonética evaluada por una persona ni un altavoz/móvil físico. Tampoco acredita
+Cloudflare Access/Tunnel real, login de Google, migración de datos personales o
+recreación/restauración completa de producción. GPT Live en Linux se comprobó
+en su pasada independiente, registrada arriba. El texto
+de ayuda para instalar AivisSpeech sigue orientado al uso local y debe adaptarse
+si se incorpora ese motor al servidor.
+
+## Fixture de micrófono compatible con Linux
+
+Se reprodujo otro fallo del entorno macOS el 10 de octubre: `say` y `afconvert`
+terminaban con código 0 pero producían PCM vacío. La fixture anterior añadía
+22 segundos de silencio y podía presentar ese archivo como una intervención.
+El helper ahora rechaza esa salida antes de crear el micrófono sintético.
+La reproducción local con el helper corregido termina explícitamente con
+«El WAV de voz no contiene muestras PCM completas», sin generar `speech.wav`.
+
+Antes de implementar la validación se enumeraron archivo ausente/ajeno a WAV,
+chunks truncados, PCM incompatible, muestras vacías, silencio y fuente demasiado
+corta. Se escribió primero `tests/e2e/speech-fixture.test.mjs`; su caso positivo
+falló contra el comportamiento anterior. Después pasan **10 contratos aislados**
+con `node --test tests/e2e/speech-fixture.test.mjs`. No sustituyen la conversación
+E2E ni acreditan calidad fonética: usan PCM sintético para comprobar el adaptador.
+
+`KAIWA_E2E_VOICE_SOURCE_WAV` permite aportar en Linux un WAV japonés ya generado,
+PCM mono de 16 bits/48000 Hz. La misma validación aplica al flujo nativo macOS;
+ambos exigen duración de fuente mayor que un segundo y RMS positivo antes de
+los silencios de negociación. Los metadatos conservan frase declarada, duración,
+RMS y hashes SHA-256 de fuente y fixture. El hash identifica el audio; no
+reconoce el contenido verbal de una fuente externa. La ejecución GPT Live en
+Linux terminó y está registrada por separado arriba.
+
+## Contexto de las verificaciones anteriores
+
+El 8 de octubre la ejecución había quedado bloqueada por permisos de bind y
+transferencia SSH, y no se crearon DNS, Tunnel ni Access. La concesión de red del
+10 de octubre permitió ejecutar este recorrido desde el entorno principal.
+Los resultados históricos siguientes pertenecen a la adaptación anterior y no
+sustituyen las pruebas del despliegue. Consultar el
+[procedimiento de despliegue](deployment.md) y los
+[E2E repetibles](../tests/e2e/README.md).
+
 Fecha: 2 de octubre de 2026, Asia/Seoul. macOS, Python 3.12.14, Codex CLI 0.159.3 con sesión ChatGPT, Chrome y Playwright 1.62.1. Proveedor de texto `gpt-6-luna`; voz experimental GPT Live v3 por WebRTC.
 
 ## Actualización: asistente, memoria y práctica por tema

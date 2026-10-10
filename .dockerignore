@@ -1,0 +1,13 @@
+# Explicitly allow application sources only. No local profile, login, or history
+# can enter the build context, including untracked files.
+**
+!Dockerfile
+!requirements.lock
+!LICENSE
+!server/
+!server/**
+!web/
+!web/**
+**/__pycache__/
+**/*.pyc
+**/.DS_Store

@@ -62,7 +62,7 @@ Las trazas contienen tráfico HTTP y texto sintético; no se deben ejecutar cont
 
 ## Voz experimental: una intervención hablada real
 
-El recorrido `voice.spec.mjs` usa GPT Live real con la cuenta ChatGPT autenticada. Sólo el dispositivo de entrada es sintético: el archivo contiene «こんにちは。私はアドです。ラーメンが好きです。», generado por macOS Kyoko, con 12 segundos de silencio inicial para negociar la conexión y 10 segundos al terminar. No se sustituyen el proveedor, la transcripción, los mensajes ni el resumen.
+El recorrido `voice.spec.mjs` usa GPT Live real con la cuenta ChatGPT autenticada. Sólo el dispositivo de entrada es sintético: el archivo contiene «こんにちは。私はアドです。ラーメンが好きです。», generado por macOS Kyoko o por un motor japonés como VOICEVOX, con 12 segundos de silencio inicial para negociar la conexión y 10 segundos al terminar. No se sustituyen el proveedor, la transcripción, los mensajes ni el resumen.
 
 Generación reproducible del WAV en un directorio **fuera del repo**:
 
@@ -70,7 +70,60 @@ Generación reproducible del WAV en un directorio **fuera del repo**:
 node tests/e2e/speech-fixture.mjs /ruta/absoluta/work/voice-input
 ```
 
-El helper ejecuta `/usr/bin/say` y `/usr/bin/afconvert`, convierte a PCM mono de 16 bits/48 kHz y escribe `speech.wav` junto a `speech.json` con texto y condiciones exactas. Requiere macOS y la voz Kyoko instalada. Chrome recibe `--use-file-for-fake-audio-capture=.../speech.wav%noloop`; la opción `%noloop` impide repetir la intervención. [Implementación oficial de Chromium](https://chromium.googlesource.com/chromium/src/+/main/media/audio/fake_audio_input_stream.cc).
+Sin una fuente externa, el helper ejecuta `/usr/bin/say` y `/usr/bin/afconvert`; ese flujo requiere macOS y Kyoko. También admite `KAIWA_E2E_VOICE_SOURCE_WAV` para leer un WAV ya generado en PCM mono de 16 bits/48 kHz, sin ejecutar utilidades macOS. Ambos flujos validan el audio antes de añadir silencio y escriben `speech.wav` junto a `speech.json` con texto, formato, duración de la fuente, RMS y hashes SHA-256 de fuente/salida. Chrome recibe `--use-file-for-fake-audio-capture=.../speech.wav%noloop`; la opción `%noloop` impide repetir la intervención. [Implementación oficial de Chromium](https://chromium.googlesource.com/chromium/src/+/main/media/audio/fake_audio_input_stream.cc).
+
+Para Linux, generar fuera del repo una fuente con **la frase japonesa exacta
+indicada arriba**, nunca una grabación personal ni el WAV ya rellenado con
+silencio. Ejemplo con el motor privado de la instancia TTS de prueba descrita
+más abajo (la red del motor no publica puertos):
+
+```sh
+mkdir -p /ruta/absoluta/work/voice-input
+docker exec -i kaiwa-tts-e2e python - <<'PYVOICE' > /ruta/absoluta/work/voice-input/voicevox-source.wav
+import json
+import sys
+import urllib.parse
+import urllib.request
+
+base = "http://voicevox:50021"
+params = urllib.parse.urlencode({"text": "こんにちは。私はアドです。ラーメンが好きです。", "speaker": 8})
+with urllib.request.urlopen(base + "/audio_query?" + params, data=b"", timeout=30) as response:
+    query = json.load(response)
+query.update(outputSamplingRate=48000, outputStereo=False, speedScale=0.85)
+request = urllib.request.Request(
+    base + "/synthesis?speaker=8", data=json.dumps(query).encode(),
+    headers={"Content-Type": "application/json"}, method="POST",
+)
+with urllib.request.urlopen(request, timeout=120) as response:
+    sys.stdout.buffer.write(response.read())
+PYVOICE
+KAIWA_E2E_VOICE_SOURCE_WAV=/ruta/absoluta/work/voice-input/voicevox-source.wav \
+node tests/e2e/speech-fixture.mjs /ruta/absoluta/work/voice-input/fixture
+```
+
+El helper exige RIFF/WAVE completo, PCM lineal mono de 16 bits a 48000 Hz,
+muestras completas, **más de un segundo** de fuente y RMS positivo. Rechaza
+silencio, datos vacíos, formato incompatible y archivos truncados, aunque el
+sintetizador/conversor haya terminado con código 0. Añade después 12 segundos
+iniciales y 10 finales; los 22 segundos de silencio por sí solos nunca pasan
+como una intervención válida. El hash identifica los bytes utilizados, pero no
+verifica qué palabras dice un WAV externo: quien genera la fuente debe usar la
+frase indicada. Conservar el comando y el motor/voz usados como evidencia.
+
+Antes de modificar este helper se enumeraron esos fallos y se escribió
+`speech-fixture.test.mjs`: el contrato positivo falló con el comportamiento
+anterior y después pasan diez controles aislados. Usan PCM sintético para
+verificar formato, rechazo de fuentes inválidas, padding e identidad; **no son
+pruebas de GPT Live ni de pronunciación**.
+
+```sh
+node --test tests/e2e/speech-fixture.test.mjs
+```
+
+Al ejecutar `voice.spec.mjs` en Linux, conservar también
+`KAIWA_E2E_VOICE_SOURCE_WAV=/ruta/absoluta/work/voice-input/voicevox-source.wav`
+en el entorno del runner: el test regenera su fixture antes de abrir el navegador.
+No basta con generar `speech.wav` manualmente y omitir la variable.
 
 Con el servidor dedicado ya iniciado y el perfil sintético creado por el recorrido principal (el test comprueba nombre `Ado E2E`, objetivo marcado `Datos sintéticos E2E` y proveedor `codex` antes de abrir la página):
 
@@ -131,3 +184,146 @@ La evidencia `personal-real-learning-results` incluye respuestas reales, memoria
 El sexto control verifica los endpoints reales de exportación/importación. Conserva un snapshot original en memoria, crea un recuerdo sintético y exporta un snapshot moderno, modifica el recuerdo y restaura para comparar exactamente memoria e historial. Con el Python de `.venv` y SQLite transforma sólo una copia temporal fuera del repo: elimina las tres tablas nuevas (`personal_memories`, `companion_messages`, `memory_context_state`), verifica integridad e importa esa copia como backup antiguo. Exige memoria y asistente vacíos y permite guardar un recuerdo nuevo después de la migración. En `finally` restaura el snapshot original, verifica ambas colecciones y elimina los ficheros temporales, incluso si falla una comprobación.
 
 Los bytes de backup se transfieren mediante `fetch` nativo de Node, fuera del contexto trazado de Playwright, y **no se adjuntan ni se guardan en el repo**. La evidencia `personal-backup-migration-evidence` contiene sólo tamaños/hashes de snapshots sintéticos, nombres de tablas y resultados de las comprobaciones. El control requiere que el historial sintético del asistente ya exista, por lo que se ejecuta con `personal.spec.mjs` completo o tras su primer recorrido; no consume IA adicional.
+
+## Seguridad del origen para despliegue
+
+Los riesgos 45–50 y `deploy-security.spec.mjs` se escribieron antes del middleware de producción. El launcher exige Python con las dependencias del proyecto, Node >=22, Playwright y OpenSSL; no necesita iniciar sesión en Codex ni llama a un modelo.
+
+```sh
+KAIWA_E2E_ARTIFACTS=/ruta/absoluta/evidencia-seguridad node tests/e2e/deploy-security-run.mjs
+```
+
+`deploy-security-run.mjs` crea una SQLite vacía y arranca Uvicorn en un puerto loopback efímero, con `KAIWA_DEPLOYMENT=production` y el origen HTTPS esperado. **No conecta ni modifica el servidor personal en 8130**. Genera una clave RSA y un certificado TLS sintéticos efímeros. El servidor HTTPS sirve el JWKS; un proxy CONNECT de pruebas transporta la consulta fija a `https://synthetic-team.cloudflareaccess.com/cdn-cgi/access/certs`. El proceso Uvicorn confía sólo en ese certificado durante esta ejecución mediante `SSL_CERT_FILE`. No se añade una URL de claves configurable ni un bypass al código de producción.
+
+Las peticiones HTTP y upgrades WebSocket son reales. `node:http` conserva el Host público al conectar con el puerto loopback aislado; el `fetch` de Node sustituye ese header por el del transporte y no sirve para este recorrido. Los tokens de prueba comprueban firma inventada, algoritmo, emisor, audiencia, correo, expiración, `nbf`, claims ausentes y tipo de token. Se verifican también HTML/assets/docs/API denegados, protección de Host/Origin, liveness local mínimo, configuración incompleta rechazada y handshake autorizado sin enviar SDP. Un token nuevo de tres segundos exige cierre 1008 al expirar. Las operaciones legítimas comprueban memoria, exportación/importación SQLite consistentes y persistencia tras reiniciar el proceso con la misma base. Los backups sólo se transfieren en memoria mediante HTTP de Node y quedan fuera de las trazas. Los adjuntos contienen únicamente nombres de casos, estados HTTP y tamaños/hashes del snapshot sintético; las claves, tokens y SQLite se eliminan al terminar.
+
+Este recorrido acredita el middleware integrado con transporte HTTPS/JWKS real y SQLite. **No acredita Cloudflare Access real, autorización de la cuenta de Google, Docker/volúmenes, audio GPT Live ni un teléfono físico en Rushia**. Esas comprobaciones se realizan sobre el despliegue final y se registran por separado. Para los recorridos reales de aprendizaje en Linux se usa una instancia temporal privada con SQLite nueva accesible sólo mediante un forward SSH; no se desactiva la seguridad del servicio publicado.
+
+Resultado comprobado el **10 de octubre de 2026, Asia/Tokyo**: **7/7 aprobados**, cero reintentos y cero omitidos, en 5,394 segundos. Se ejecutó sobre macOS, Node 24.14.1, Python 3.12.14 y Playwright 1.62.1, con PyJWT 2.15.1, cryptography 50.0.2, cffi 2.1.1 y pycparser 3.11 instalados en `.venv`.
+
+```sh
+KAIWA_E2E_ARTIFACTS=/Users/ado/Documents/Codex/2026-09-25/hay/work/deploy-security-2026-10-10-r2 node tests/e2e/deploy-security-run.mjs
+```
+
+La evidencia final está en ese directorio: `report/index.html`, `result.json`, trazas `results/` y adjuntos de estados, configuración, cierre 1008 y hash/tamaño del snapshot. La primera pasada (4 aprobados, 3 fallidos) se conserva en `work/deploy-security-2026-10-10`, fuera del repo: el harness usaba `fetch`, que descartaba el Host esperado. Se corrigió el transporte a `node:http` y se repitió la suite completa sobre una SQLite nueva. El control de expiración conecta sin SDP: no acredita todavía la cancelación de un proceso Codex con GPT Live activo ni el audio de esa llamada.
+
+## Lectura japonesa real en Linux
+
+`tts.spec.mjs` necesita el backend Linux construido con el Dockerfile del repo,
+VOICEVOX CPU real y Playwright 1.62.1 con su navegador instalado. No requiere
+login de Codex y no consume cuota del tutor. **Nunca usar el servidor personal
+ni desactivar Access en el servicio publicado para estas pruebas.** Crear una
+instancia independiente, volúmenes nuevos y un puerto sólo en loopback, sin
+Cloudflare Tunnel. La instancia de producción conserva sus cuatro variables de
+Access y su validación JWT.
+
+Ejemplo en Rushia con Docker rootless, desde una copia de este repo. Sustituir
+el tag de la app por la imagen construida que se quiere verificar; el motor usa
+el digest oficial ya inspeccionado en `.env.example`:
+
+```sh
+KAIWA_TTS_APP_IMAGE=kaiwa:local
+KAIWA_TTS_VOICEVOX_IMAGE=voicevox/voicevox_engine@sha256:4a9f0f5b3d3ed7438975f2b277cdfb805c6f8d5ed5d7258ac2988abbeae032a0
+
+docker network create kaiwa-tts-e2e-egress
+docker network create --internal kaiwa-tts-e2e-speech
+
+docker run -d --name kaiwa-tts-e2e-voicevox \
+  --network kaiwa-tts-e2e-speech --network-alias voicevox \
+  --user 1000:1000 --entrypoint /opt/voicevox_engine/run \
+  --cap-drop ALL --security-opt no-new-privileges:true \
+  --memory 4g --cpus 2 --pids-limit 256 \
+  "$KAIWA_TTS_VOICEVOX_IMAGE" --host 0.0.0.0
+
+docker run -d --name kaiwa-tts-e2e \
+  --network kaiwa-tts-e2e-egress \
+  -p 127.0.0.1:18133:8130 \
+  --read-only --cap-drop ALL --security-opt no-new-privileges:true \
+  --tmpfs /tmp:rw,noexec,nosuid,size=256m,mode=1777 \
+  --memory 1g --cpus 2 --pids-limit 256 \
+  -e KAIWA_DEPLOYMENT=local \
+  -e KAIWA_PUBLIC_ORIGIN= -e KAIWA_ACCESS_TEAM_DOMAIN= \
+  -e KAIWA_ACCESS_AUD= -e KAIWA_ALLOWED_EMAIL= \
+  -e KAIWA_VOICEVOX_URL=http://voicevox:50021 \
+  -v kaiwa-tts-e2e-data:/app/data \
+  -v kaiwa-tts-e2e-codex:/home/kaiwa/.codex \
+  -v 'kaiwa-tts-e2e-backups:/home/kaiwa/Documents/Kaiwa Backups' \
+  "$KAIWA_TTS_APP_IMAGE"
+
+docker network connect kaiwa-tts-e2e-speech kaiwa-tts-e2e
+```
+
+No montar la base ni el volumen Codex de producción. Los cuatro ajustes de
+Access vacíos son exclusivos de este contenedor nuevo en modo local: un proceso
+en modo producción sigue rechazando esa configuración. No publicar ningún
+puerto de VOICEVOX. El arranque explícito como UID 1000 evita el `gosu` del
+entrypoint original, incompatible con eliminar todas las capacidades; no se
+necesita otorgar capacidades al motor.
+
+Esperar a que el proceso del motor haya arrancado. Antes del runner,
+`http://127.0.0.1:18133/healthz` debe responder y `/api/voices` debe contener
+voces con `engine: "VOICEVOX"`. Un catálogo vacío impide pasar los tests y no
+cuenta como éxito. Usar una ruta de evidencia nueva en cada pasada.
+
+Se puede ejecutar el navegador en un equipo cliente con Node/Playwright/Chrome:
+abrir primero un forward SSH privado, manteniéndolo durante el recorrido.
+
+```sh
+ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -N \
+  -L 127.0.0.1:18133:127.0.0.1:18133 rushia
+```
+
+En otro terminal, desde el repo cliente:
+
+```sh
+KAIWA_E2E_TTS=1 \
+KAIWA_E2E_BASE_URL=http://127.0.0.1:18133 \
+KAIWA_E2E_ARTIFACTS=/ruta/absoluta/evidencia-tts-linux \
+node tests/e2e/run.mjs tts.spec.mjs
+```
+
+Si el navegador local no puede arrancar, ejecutar el runner directamente en
+Rushia. Preparar fuera del repo un runtime de Playwright y el navegador requerido
+por **esa misma versión**, además de sus bibliotecas Linux. No basta con tener
+una versión distinta de Chromium instalada:
+
+```sh
+npm install --prefix /home/ado/.local/share/kaiwa-deploy/e2e-runtime playwright@1.62.1
+PLAYWRIGHT_BROWSERS_PATH=/home/ado/.local/share/kaiwa-deploy/browsers \
+node /home/ado/.local/share/kaiwa-deploy/e2e-runtime/node_modules/playwright/cli.js install chromium
+```
+
+Comando de la pasada final comprobada el **10 de octubre de 2026, Asia/Tokyo**:
+
+```sh
+cd /home/ado/.local/share/kaiwa-deploy/source
+PLAYWRIGHT_BROWSERS_PATH=/home/ado/.local/share/kaiwa-deploy/browsers \
+KAIWA_PLAYWRIGHT_ROOT=/home/ado/.local/share/kaiwa-deploy/e2e-runtime/node_modules \
+KAIWA_E2E_CHANNEL=chromium \
+KAIWA_E2E_TTS=1 \
+KAIWA_E2E_BASE_URL=http://127.0.0.1:18133 \
+KAIWA_E2E_ARTIFACTS=/home/ado/.local/share/kaiwa-deploy/evidence/tts-e2e-r3 \
+node tests/e2e/run.mjs tts.spec.mjs
+```
+
+Pasan **6/6**, cero omitidos y cero reintentos, en **15,832 segundos**:
+Node 24.21.0, Python del contenedor 3.12.15, Chromium 151.0.7922.34 y Playwright
+1.62.1. Imagen comprobada `kaiwa:local`, ID
+`sha256:760c4e02e636eb977ca44d96373965cf47a92305f74b7ab04e21513f00bef703`.
+
+La suite exige WAV real, mayor duración a velocidad 0,7, repetición del audio,
+perfil `say:Kyoko` migrado sobre backend que declara Linux, errores 422/503,
+reproducción de «Escuchar» y muestra de Ajustes a 1440/390 px, y recuperación
+tras un 503 representado en el navegador. La UI usa perfil y vocabulario
+sintéticos interceptados; `/api/voices`, `/api/tts`, WAV y reproducción HTMLAudio
+siguen siendo reales. El caso 503 del motor usa un estilo inexistente real;
+la recuperación de UI sustituye sólo la respuesta fallida. No demuestra una
+caída/reinicio del motor, calidad fonética humana ni salida por un altavoz o
+móvil físico. Tampoco comprueba GPT Live o Cloudflare real.
+
+El informe incluye WAV, duración/hash, eventos `playing`, capturas de escritorio
+y móvil, trazas y resultados JSON. Copia local de la pasada R3, fuera del repo:
+`work/deploy/tts-e2e-r3/tts-e2e-r3/report/index.html`. Al terminar, conservar la
+evidencia y eliminar únicamente los contenedores, redes y volúmenes de prueba
+que se acaban de crear; no usar limpieza global de Docker ni nombres de
+producción.

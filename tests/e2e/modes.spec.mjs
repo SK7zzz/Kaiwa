@@ -113,6 +113,7 @@ test('Codex real: lectura hiragana → tres preguntas respondidas → cierre e i
   await attachScreenshot(page, testInfo, 'hiragana-story-with-spanish-translation');
   await page.locator('.reader-page.story .reader-cta button').click();
   const questions = [];
+  let completionResponse;
   for (let question = 1; question <= 3; question += 1) {
     const quizPage = page.locator('.reader-page.quiz').nth(question - 1);
     await expect(quizPage).toBeVisible();
@@ -124,6 +125,9 @@ test('Codex real: lectura hiragana → tres preguntas respondidas → cierre e i
     expect(hints.suggestions.length).toBeGreaterThan(0);
     const answer = hints.suggestions[0].japanese;
     expect(answer).toMatch(japanese);
+    if (question === 3) {
+      completionResponse = page.waitForResponse(response => response.url().endsWith('/api/chat'));
+    }
     await quizPage.locator('.quiz-answer input').fill(answer);
     await quizPage.locator('.quiz-answer button').click();
     await expect(quizPage.locator('.your-answer')).toContainText(answer);
@@ -136,6 +140,12 @@ test('Codex real: lectura hiragana → tres preguntas respondidas → cierre e i
   await expect(completion.locator('.quiz-answer')).toBeHidden();
   await expect(completion.locator('.quiz-body')).not.toContainText(/[?？]/);
   await expect(completion.locator('.quiz-label')).toContainText('Lectura completada');
+  const completionEvents = (await (await completionResponse).text()).split('\n\n')
+    .filter(event => event.startsWith('data: ')).map(event => JSON.parse(event.slice(6)));
+  expect(completionEvents.find(event => event.done)?.story_complete).toBe(true);
+  const extraAnswer = await request.post('/api/chat', { data: { session_id: sessionId, text: 'もうひとつ、こたえます。' } });
+  expect(extraAnswer.status()).toBe(409);
+  expect((await extraAnswer.json()).error).toContain('lectura ya está completada');
   await attachScreenshot(page, testInfo, 'hiragana-reading-three-answers-complete');
   await page.locator('#rd-prev').click();
   await expect(page.locator('.reader-page.quiz').nth(2)).toBeVisible();
@@ -146,5 +156,7 @@ test('Codex real: lectura hiragana → tres preguntas respondidas → cierre e i
   const history = await responseJson(await request.get(`/api/sessions/${sessionId}/messages`));
   expect(history.messages.filter(message => message.role === 'assistant')).toHaveLength(5);
   expect(history.messages.filter(message => message.role === 'user')).toHaveLength(4);
+  expect(history.messages.filter(message => message.role === 'user').slice(1)
+    .every(message => message.correction !== null)).toBe(true);
   await attachResults(testInfo, { sessionId, title, story, translation, questions, summary, messages: history.messages });
 });

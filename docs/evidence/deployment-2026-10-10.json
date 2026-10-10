@@ -1,0 +1,68 @@
+{
+  "date": "2026-10-10",
+  "branch": "ado/spanish-codex-tutor",
+  "image_id": "sha256:3e2dd66c081bf212b54a5e2788df67890350ef42549b7accd4308e061d0f9339",
+  "environment": "Rushia Linux; isolated synthetic databases; official Codex device login; loopback URLs; real Chromium and VOICEVOX",
+  "suites": {
+    "integrated-final-e2e": {
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "duration_ms": 222605.554,
+      "started_at": "2026-10-10T08:56:45.223Z",
+      "report_on_rushia": "/home/ado/.local/share/kaiwa-deploy/evidence/integrated-final-e2e/report/index.html"
+    },
+    "tts-final-e2e-r2": {
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "duration_ms": 14212.529,
+      "started_at": "2026-10-10T08:57:47.221Z",
+      "report_on_rushia": "/home/ado/.local/share/kaiwa-deploy/evidence/tts-final-e2e-r2/report/index.html"
+    },
+    "security-final-e2e": {
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "duration_ms": 14346.662,
+      "started_at": "2026-10-10T08:58:18.340Z",
+      "report_on_rushia": "/home/ado/.local/share/kaiwa-deploy/evidence/security-final-e2e/report/index.html"
+    },
+    "voice-final-e2e": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "duration_ms": 34725.368,
+      "started_at": "2026-10-10T09:00:46.617Z",
+      "report_on_rushia": "/home/ado/.local/share/kaiwa-deploy/evidence/voice-final-e2e/report/index.html"
+    }
+  },
+  "backup": {
+    "scope": "isolated Docker Compose; no production data",
+    "project": "kaiwa-backup-e2e-47f966ef0447",
+    "image": "sha256:3e2dd66c081bf212b54a5e2788df67890350ef42549b7accd4308e061d0f9339",
+    "checks": [
+      "synthetic-project-with-distractors",
+      "server-snapshot-created",
+      "consistent-export-with-memory",
+      "project-file-exact-selection",
+      "missing-project-file-manual-fallback-without-docker-query",
+      "malformed-project-file-refused",
+      "explicit-project-precedence-and-empty-refused",
+      "real-sqlite-restore",
+      "survives-container-restart",
+      "no-matching-service-refused",
+      "multiple-matching-services-refused",
+      "wrong-daemon-refused-without-fallback"
+    ],
+    "result": "passed"
+  },
+  "reproduction": "See docs/deployment.md and tests/e2e/README.md. Raw reports and traces retained on Rushia at the paths above.",
+  "not_verified": [
+    "Cloudflare Access application and named tunnel",
+    "Final HTTPS hostname and voice through Cloudflare",
+    "Physical mobile microphone and playback",
+    "Production personal-data migration",
+    "Off-server SSH backup download from production"
+  ]
+}
