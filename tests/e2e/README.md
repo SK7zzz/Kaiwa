@@ -390,3 +390,151 @@ demasiado estricta de 403 ante Origin duplicado WS; el protocolo devuelve 400
 antes del middleware. Se corrigió únicamente esa expectativa, manteniendo las
 denegaciones y repitiendo los siete casos. Python compila los módulos cambiados;
 `node --check` y `git diff --check` pasan.
+
+## Despliegue real: HTTPS, navegador y proveedores sobre Tailscale
+
+`tailscale-live.spec.mjs` contiene **cinco casos**: navegación y contexto seguro
+a 1440 px y 390 px (dos casos); memoria creada/editada, cancelación de olvido y
+borrado persistente; conversación con Codex real, corrección, SSE, reproducción
+WAV e informe persistido; y GPT Live real con WebRTC, audio bidireccional,
+transcripción japonesa, mute/subtítulos y cierre con informe.
+
+Ejecutar únicamente **antes de migrar los datos personales**, con el perfil
+sintético `Ado E2E`, objetivos que contengan `Datos sintéticos E2E`, proveedor
+`codex`, autoplay desactivado y CLI autenticada. Cada caso comprueba esas
+condiciones antes de operar. El navegador debe pertenecer al tailnet con la
+identidad autorizada: no se falsifican cabeceras Tailscale ni se inyecta el
+secreto del proxy en el navegador. TLS se verifica normalmente, sin ignorar
+errores de certificado. Los casos Codex y GPT Live consumen cuota real.
+
+Comando en Rushia desde el checkout de verificación, con Node/Playwright y el
+Chromium ya instalados en las rutas del recorrido Linux:
+
+```sh
+cd /home/ado/.local/share/kaiwa-deploy/source
+PLAYWRIGHT_BROWSERS_PATH=/home/ado/.local/share/kaiwa-deploy/browsers \
+KAIWA_PLAYWRIGHT_ROOT=/home/ado/.local/share/kaiwa-deploy/e2e-runtime/node_modules \
+KAIWA_E2E_CHANNEL=chromium \
+KAIWA_E2E_TAILSCALE=1 \
+KAIWA_E2E_BASE_URL=https://rushia-1.tail7bb611.ts.net \
+KAIWA_E2E_VOICE_SOURCE_WAV=/home/ado/.local/share/kaiwa-deploy/voice-input/source.wav \
+KAIWA_E2E_VOICE_FIXTURE_DIR=/home/ado/.local/share/kaiwa-deploy/voice-input/tailscale-fixture \
+KAIWA_E2E_ARTIFACTS=/home/ado/.local/share/kaiwa-deploy/evidence/tailscale-live-r3 \
+node tests/e2e/run.mjs tailscale-live.spec.mjs --grep 'Memoria|Codex real|GPT Live'
+```
+
+Este es el comando de la pasada R3 para los **tres casos afectados**. La pasada
+R2 ya comprobó los dos casos de navegación de escritorio/móvil sobre el
+commit desplegado `4139ff9`. Para una primera comprobación completa, usar otra
+ruta nueva de evidencia y omitir `--grep`; para repetir sólo navegación, usar
+`--grep 'HTTPS válido'`. No repetir casos ya satisfactorios sin un cambio o
+riesgo nuevo que lo justifique. No ejecutar la suite después de migrar el
+perfil personal ni desactivar su guarda para hacerla pasar.
+
+La fuente WAV contiene «こんにちは。私はアドです。ラーメンが好きです。» en PCM mono
+16 bits, 48 kHz, **sin padding**. `speech-fixture.mjs` valida formato y energía,
+y añade 12 segundos iniciales y 10 finales para negociar la conexión. La fuente
+no contiene una grabación personal. Chromium utiliza ese micrófono sintético;
+el proveedor, WebRTC y respuestas siguen siendo reales.
+
+El informe conserva capturas, trazas, errores de página, orígenes reales de
+las mutaciones (`allHeaders()`), SSE observado mediante un clon sin retrasar
+la respuesta de la UI, WAV y sus métricas, corrección, historial/informes y
+diagnósticos de voz. Los eventos SSE se comprueban al terminar el stream;
+no es una medición de latencia incremental. Las trazas sólo deben conservar
+contenido sintético y nunca credenciales o una base de datos personal.
+La pasada R3 **pasó 3/3**: memoria en **6,8 s**, conversación Codex con
+SSE/corrección/WAV/informe en **27,9 s** y GPT Live en **30,6 s** (suite de
+aproximadamente 1,2 minutos). Sumada a los dos casos de escritorio/móvil ya
+aprobados en R2, quedan comprobados los **cinco recorridos HTTPS** del
+commit desplegado `4139ff9`. Evidencia remota fuera de Git:
+`/home/ado/.local/share/kaiwa-deploy/evidence/tailscale-live-r2/report/index.html`
+y `/home/ado/.local/share/kaiwa-deploy/evidence/tailscale-live-r3/report/index.html`.
+Las correcciones de instrumentación usan `allHeaders()` para observar Origin y
+un clon del stream SSE para observarlo sin retrasar a la UI. Después de estas
+pasadas se migraron los datos personales: **no volver a ejecutar esta suite
+contra la base de producción**.
+
+### Renderer e ingreso reales en Linux
+
+El renderer se verifica como root por su CLI real en directorios temporales
+independientes; no modifica la configuración privada de producción:
+
+```sh
+cd /home/ado/.local/share/kaiwa-deploy/source
+sudo python3 deploy/check-tailscale-renderer.py \
+  --evidence-dir /home/ado/.local/share/kaiwa-deploy/evidence/tailscale-renderer
+```
+
+Comprueba secreto de 256 bits y permisos/propietarios privados, configuración
+con el mismo secreto, reejecución estable, secretos inválidos, symlinks,
+propietario ajeno y marcadores de plantilla incorrectos. El informe no conserva
+secreto ni configuración renderizada.
+
+El ingreso se verifica **antes de la migración personal**, sobre los servicios
+desplegados y el socket Docker del sistema, también como root:
+
+```sh
+cd /home/ado/.local/share/kaiwa-deploy/source
+sudo python3 deploy/check-tailscale-ingress.py \
+  --evidence-dir /home/ado/.local/share/kaiwa-deploy/evidence/tailscale-ingress-runtime-r2
+```
+
+La pasada real utilizó la misma herramienta copiada como
+`/tmp/kaiwa-check-tailscale-ingress.py`. El **11 de octubre de 2026, Asia/Tokyo**,
+pasaron sus **11 comprobaciones**, con evidencia local saneada en
+`work/deploy/tailscale-ingress-runtime-r2.json` y copia remota en el directorio
+del comando. Comprueba servicios exactos, puertos configurados y efectivos,
+restricciones de contenedores, separación de cuatro redes, HTTPS persistente
+sin Funnel, perfil por TLS válido, cabeceras falsas sobrescritas por Serve/proxy,
+CSRF rechazado sin cambiar el perfil, identidad ausente/ajena rechazada en
+loopback, acceso directo a la app sin secreto rechazado y proxy inaccesible
+desde la red de salida de la app.
+
+La última comprobación usa un cliente Docker desechable, sin capacidades y con
+imagen local fijada por digest; lo elimina al terminar, incluso tras un timeout.
+Los errores de herramientas o transporte hacen fallar el control y no cuentan
+como denegación segura. El JSON conserva nombres de controles, resultado y
+referencias inmutables de imagen, sin cuerpos HTTP, perfil, secretos ni
+inspecciones Docker completas. Este control no sustituye los cinco recorridos
+de navegador ni demuestra la denegación a otra identidad real del tailnet.
+
+### Descargador SSH compatible con macOS
+
+`deploy/check-pull-backup.py` ejecuta el **script shell real** de descarga con
+un endpoint SSH sintético y snapshots SQLite temporales. Los ocho escenarios
+se definieron antes de corregir la incompatibilidad de BSD `chmod`: rutas
+absolutas con espacios, relativas con espacios y relativas que comienzan por
+un guion; salida parcial de SSH seguida de error; cabecera SQLite inválida;
+esquema incompleto; snapshot corrupto; y directorio destino que es un symlink.
+
+Ejecutar desde la raíz del repo, en macOS o Linux, sin root ni conexión a
+producción, y con evidencia fuera de Git:
+
+```sh
+python3 deploy/check-pull-backup.py \
+  --evidence-dir /ruta/absoluta/privada/pull-backup-check
+```
+
+Los casos válidos exigen un único snapshot publicado, directorio `0700`,
+archivo `0600`, integridad correcta y contenido sintético exacto. Los negativos
+exigen error explícito, ninguna salida de éxito y ningún archivo publicado o
+temporal abandonado. El caso symlink se rechaza antes de intentar SSH. El
+endpoint simulado comprueba además los argumentos SSH y el comando remoto;
+no se leen claves privadas ni se establece una conexión de red.
+
+El **11 de octubre de 2026, Asia/Tokyo**, la pasada inicial en macOS falló
+**7/8** antes de alcanzar la frontera SSH: BSD `chmod` rechaza `--`. La
+corrección conserva la protección frente a rutas que parecen opciones mediante
+su normalización, y la repetición pasó **8/8**. Evidencia local fuera del repo:
+`work/deploy/pull-backup-macos-before/result.json` y
+`work/deploy/pull-backup-macos-after/result.json`. Los JSON sólo contienen
+plataforma, nombres de casos, resultados y errores saneados.
+
+Esta suite acredita la portabilidad y los fallos del descargador aislado. La
+descarga **real** posterior al Mac se comprobó por separado: permisos `0600`,
+integridad y comparación exacta de ocho tablas con los datos originales,
+incluidos ajustes salvo `backup_last`. Su informe privado saneado está en
+`work/deploy/private/offsite-verification-result.json`; no contiene filas
+personales ni credenciales. Ninguno de esos dos controles demuestra por sí
+solo que un snapshot programado posterior del servidor se haya generado.

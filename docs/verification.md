@@ -1,6 +1,88 @@
 # Verificación de la adaptación personal
 
-## Estado Linux integrado — 10 de octubre de 2026, Asia/Tokyo
+## Estado actual desplegado — 11 de octubre de 2026, Asia/Tokyo
+
+[Registro saneado de este despliegue](evidence/tailscale-deployment-2026-10-11.json):
+resultados, imagen, procedimientos y límites sin credenciales ni contenido personal.
+
+Kaiwa está desplegada mediante Dokploy en Rushia, con acceso privado en
+`https://rushia-1.tail7bb611.ts.net` por Tailscale Serve y nginx loopback.
+La app exige el secreto del proxy y la identidad Tailscale exacta; Kaiwa y
+VOICEVOX no publican puertos. No está habilitado Funnel.
+
+El commit desplegado es `4139ff9`. La inspección real registra la configuración
+de imagen del contenedor
+`sha256:39c08366c7074cb7f78f790dc8de399c89a0daaebdc1c8677b3697eaa0c43017`
+y el índice inmutable
+`sha256:11b3e1654b030128792854ed13139b253647bd2c0c352345df904266dc029d09`.
+Son identificadores distintos del almacén containerd; no representan dos
+versiones diferentes de la aplicación.
+
+Comprobaciones actuales sobre el resultado integrado:
+
+| Recorrido | Resultado | Evidencia fuera de Git |
+| --- | --- | --- |
+| Autenticación Tailscale sintética: HTTP/WS, identidad, secreto, CSRF, configuración, memoria y backup/reinicio | 7/7, 3,38 s | `work/deploy/tailscale-security-r2/report/index.html` |
+| Regresión Cloudflare JWT/JWKS | 7/7, 5,23 s | `work/deploy/cloudflare-regression-ts-r1/report/index.html` |
+| Ingreso Linux real: servicios, puertos, redes, restricciones, TLS, Serve y denegaciones | 11 controles aprobados | `work/deploy/tailscale-ingress-runtime-r2.json` |
+| HTTPS escritorio/móvil, memoria, Codex/SSE/corrección/WAV/informe y GPT Live | 5 casos aprobados: 2 en R2 y 3 en R3 | Remoto: `evidence/tailscale-live-r2/report/index.html` y `evidence/tailscale-live-r3/report/index.html` |
+| Importación personal y persistencia tras reinicio | Ambas fases aprobadas; integridad SQLite correcta | `work/deploy/private/personal-migration-import-result.json` y `work/deploy/private/personal-migration-restart-result.json` |
+| Descarga SSH real al Mac | Integridad y comparación exacta aprobadas; archivo privado fuera de Rushia | `work/deploy/private/offsite-verification-result.json` |
+| Compatibilidad del descargador en macOS | 8/8, SSH y SQLite sintéticos | `work/deploy/pull-backup-macos-after/result.json` |
+
+Las rutas locales anteriores son relativas al workspace. La raíz de la evidencia
+remota es `/home/ado/.local/share/kaiwa-deploy/`. En R3 pasaron memoria en
+6,8 s, Codex en 27,9 s y GPT Live en 30,6 s. Estas pasadas de navegador utilizaron
+exclusivamente datos sintéticos **antes de migrar el perfil personal**. Verifican
+TLS real, contexto seguro y micrófono disponible; navegación sin desbordamiento
+a 1440/390 px; memoria persistente; SSE completo; corrección; reproducción WAV;
+voz japonesa real por WebRTC, subtítulos/mute e informes persistidos. El
+micrófono es sintético; no acreditan un móvil o altavoz físico ni latencia
+incremental del SSE. Procedimiento y límites:
+[E2E repetibles](../tests/e2e/README.md#despliegue-real-https-navegador-y-proveedores-sobre-tailscale).
+
+La importación y el reinicio comparan exactamente ocho tablas: perfil,
+sesiones, mensajes, vocabulario, errores, recuerdos personales, mensajes del
+compañero y estado de contexto. Conservan **una sesión, 17 mensajes y cinco
+recuerdos**, sin cambios de ajustes de plataforma; el login oficial de Codex
+permanece preparado. Los informes privados sólo conservan resultados/conteos,
+no contenido personal ni credenciales. No repetir los E2E sintéticos sobre esta
+base de producción ya migrada.
+
+El Mac volvió a conectarse a Tailscale y la **descarga SSH real pasó**:
+archivo privado `0600`, integridad SQLite correcta y comparación exacta de las
+ocho tablas con los datos originales (una sesión, 17 mensajes y cinco recuerdos),
+incluidos todos sus ajustes. Evidencia
+saneada: `work/deploy/private/offsite-verification-result.json`. El snapshot
+comprobado está fuera de Rushia; no se incluyen datos personales en el informe.
+
+El timer de backups está **activo**; la próxima ejecución observada fue
+`2026-10-11T18:04:57Z`. Se inició el servicio mediante systemd y terminó con
+`ExecMainStatus=0`, `Result=success` y marca de salida `2026-10-11T03:29:11Z`.
+Su **primer snapshot del servidor está verificado**: un archivo presente,
+modo `0600` e integridad SQLite correcta. Esto comprueba el servicio real y su
+archivo, además del timer activo; no equivale a haber esperado la siguiente
+ejecución programada.
+
+La copia externa comparada exactamente arriba corresponde a la descarga previa
+a ese backup. La segunda descarga, posterior al nuevo snapshot, también pasó:
+conserva las ocho tablas y sólo cambia el ajuste operativo `backup_last`.
+Evidencia privada: `work/deploy/private/offsite-after-server-backup-result.json`.
+La descarga fuera de Rushia es manual; no hay automatización del pull instalada.
+La compatibilidad del descargador macOS pasó **8/8** con SSH y
+SQLite sintéticos, después de reproducir siete fallos de ocho casos por el uso
+incompatible de `chmod --` en BSD.
+Evidencia: `work/deploy/pull-backup-macos-before/result.json` y
+`work/deploy/pull-backup-macos-after/result.json`. Este recorrido aislado se
+distingue de la descarga real aprobada arriba.
+
+La arquitectura Cloudflare/Tunnel se abandonó a favor de Tailscale Serve. Su
+código y pruebas se conservan como alternativa; no se publica Kaiwa mediante
+`kaiwa.adonain.dev` ni se afirma haber comprobado Access/Tunnel real. Los
+resultados del 10 de octubre que siguen son históricos y no sustituyen la
+verificación actual por HTTPS.
+
+## Histórico: Linux integrado — 10 de octubre de 2026, Asia/Tokyo
 
 La imagen final reconstruida es
 `sha256:3e2dd66c081bf212b54a5e2788df67890350ef42549b7accd4308e061d0f9339`.
@@ -58,18 +140,15 @@ Los helpers, el servicio de sistema, el timer y la configuración
 `/etc/kaiwa/compose-project` están instalados; el proyecto configurado es
 `kaiwa-private-imwlmy` y el timer permanece deshabilitado.
 
-Dokploy privado está instalado y verificado por Tailscale. El login oficial
-Cloudflare ya terminó y existe el túnel local `kaiwa-rushia`, sin DNS ni conexión
-activa. **Access y `https://kaiwa.adonain.dev` siguen pendientes**: el propietario
-debe completar el checkout de Zero Trust Free, que exige aceptar términos y
-autorizar posibles cargos por exceso. El conector pasó la validación oficial
-de ingress/rutas, lectura de credencial como UID 65532 y Compose sin puertos;
-se usó un AUD sintético y no se comprobó tráfico a través de Cloudflare.
-Tampoco se ha migrado la base personal ni verificado la descarga SSH de
-producción. La imagen final está construida y sus suites Linux indicadas están
-aprobadas y el código de esa pasada se subió en `4c607ed`. La configuración del
-conector y su evidencia de preflight se subieron en `0863952`; siguen pendientes
-los controles por el dominio final.
+En esta fase histórica, Dokploy privado estaba verificado por Tailscale y el
+túnel local `kaiwa-rushia` no tenía DNS ni conexión activa. El conector
+Cloudflare pasó únicamente el preflight de ingress/rutas, lectura de credencial
+como UID 65532 y Compose sin puertos, con AUD sintético; no se comprobó tráfico
+por Access/Tunnel real. Esa arquitectura se abandonó a favor de Tailscale Serve;
+no hay un paso pendiente de activación de Cloudflare. El código de esta pasada
+histórica se subió en `4c607ed`, y el preflight del conector en `0863952`.
+En aquella fase aún faltaban la migración, el acceso HTTPS y la descarga SSH
+de producción; sus comprobaciones actuales están al principio del documento.
 
 ## Seguridad del origen — 10 de octubre de 2026, Asia/Tokyo
 
@@ -124,7 +203,8 @@ Google, GPT Live activo al expirar la autorización, audio VOICEVOX Linux ni un
 móvil físico**. El reinicio comprobado es del proceso con SQLite persistente;
 la recreación del contenedor y sus volúmenes necesita su propio recorrido. El
 build y recorridos Linux comprobados están registrados por separado arriba.
-Acceso final y cierre con commit/push siguen pendientes.
+El acceso final aún no se había comprobado en esta pasada histórica; su estado
+actual figura al principio de este documento.
 
 ## Lectura japonesa en Linux — 10 de octubre de 2026, Asia/Tokyo
 
@@ -289,7 +369,7 @@ Se corrigió un fallo del lector que eliminaba saltos al convertir a hiragana y 
 
 Una pasada anterior conectó voz pero no produjo transcripciones. La investigación mostró que el saludo se enviaba antes del aviso `session.started`; se corrigió ese orden y se añadió una aserción temporal. La causa exacta de aquel fallo no quedó demostrada; el registro anterior se conserva localmente en `work/e2e/pre-ready-artifacts`, fuera del repo. La suite integrada final pasa con diagnósticos activados. La voz sigue siendo experimental y su reconocimiento puede confundir palabras.
 
-No se evaluaron pronunciación humana, ruido ambiental, interrupciones frecuentes ni el micrófono de un móvil físico. La revisión móvil usa emulación de iPhone 13 en Chrome. Tampoco se activó Tailscale ni se probaron proveedores/recursos offline, instaladores o despliegue. JMdict offline conserva definiciones japonés–inglés.
+No se evaluaron pronunciación humana, ruido ambiental, interrupciones frecuentes ni el micrófono de un móvil físico. La revisión móvil usa emulación de iPhone 13 en Chrome. En aquella pasada no se activó Tailscale ni se probaron proveedores/recursos offline, instaladores o despliegue; Tailscale y el despliegue actuales se verifican en la sección inicial. JMdict offline conserva definiciones japonés–inglés.
 
 ## Controles adicionales
 

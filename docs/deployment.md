@@ -6,7 +6,7 @@ Ado eligió Tailscale. La configuración Cloudflare queda como [histórico](depl
 
 Dirección privada: **https://rushia-1.tail7bb611.ts.net**. El dispositivo debe tener Tailscale conectado a la red de `adonain.dev@gmail.com`. Se usa el nombre HTTPS de Tailscale para disponer de certificado válido y micrófono/WebRTC. `kaiwa.adonain.dev` no es la dirección de este despliegue.
 
-Serve ya tiene HTTPS configurado. La integración y pruebas finales están en curso; aún no acredita migración personal ni voz a través del proxy.
+El despliegue funciona con HTTPS privado. Pasan cinco recorridos de navegador —escritorio, móvil, memoria, conversación escrita y GPT Live— y once controles sobre el ingreso real. El perfil, historial y memoria del Mac están importados y comparados tras reiniciar. Se ha descargado al Mac una copia consistente y comprobado que conserva exactamente las ocho tablas personales. Ver [resultados y límites](verification.md).
 
 ## Acceso y aislamiento
 
@@ -22,7 +22,7 @@ Kaiwa y VOICEVOX no publican puertos. `kaiwa-proxy` une sólo nginx y Kaiwa; `ka
 
 Dokploy usa Docker rootful `/var/run/docker.sock`. El daemon rootless de `ado` tiene imágenes y volúmenes independientes. Proyecto Compose real: `kaiwa-private-imwlmy`; composeId: `-Qcniki2VcyAeF1IQyXxO`. Panel privado: `http://100.75.30.119:3000`.
 
-1. Ejecutar el renderer de `deploy/` para generar `/etc/kaiwa/tailscale/proxy.conf` y `proxy-secret`. Directorio root `0700`; archivos legibles únicamente por los UID de los servicios correspondientes. No imprimir contenido ni copiarlo a argumentos, logs o Git.
+1. Ejecutar `sudo python3 deploy/render-tailscale-proxy.py` para generar `/etc/kaiwa/tailscale/proxy.conf` y `proxy-secret`. Directorio root `0700`; archivos legibles únicamente por los UID de los servicios correspondientes. No imprimir contenido ni copiarlo a argumentos, logs o Git.
 2. Guardar en Dokploy los valores de `.env.example`: proveedor Tailscale, origen HTTPS, login exacto, rutas privadas e imágenes fijadas por digest. Sin `COMPOSE_PROFILES=tunnel` ni variables Cloudflare.
 3. Mantener fuente Git, rama `ado/spanish-codex-tutor`, archivo `./compose.yaml`, dominios vacíos y comando vacío. Dokploy construye y ejecuta Compose mediante su comando oficial. No activar fresh volumes.
 4. Inspeccionar Compose convertido: sólo nginx publica puerto, exclusivamente loopback; sin Traefik, cloudflared ni Funnel. Desplegar, comprobar healthchecks y `nginx -t`.
@@ -54,7 +54,7 @@ sudo systemctl list-timers kaiwa-backup.timer
 bash deploy/pull-backup.sh /directorio/privado/de/copias
 ```
 
-El timer es diario a las 03:00 de Tokio. Una copia en el mismo servidor no sustituye otra fuera de él. El pull usa SSH administrativo, valida esquema e integridad y publica atómicamente con permisos `0600`. La automatización del pull requiere configuración adicional; no se presupone instalada.
+El timer está activo, diariamente a las 03:00 de Tokio con hasta cinco minutos de margen aleatorio. La primera ejecución de producción creó un snapshot con integridad SQLite correcta y permisos `0600`. Una copia en el mismo servidor no sustituye otra fuera de él. El pull usa SSH administrativo, valida esquema e integridad y publica atómicamente con permisos `0600`. Su compatibilidad macOS se comprobó con ocho casos sintéticos y una descarga real. La automatización del pull requiere configuración adicional; no está instalada.
 
 Rollback de red: `sudo tailscale serve --https=443 off` desactiva esta ruta. De app: volver al commit/imagen anterior conservando volúmenes. De datos: restaurar snapshot validado sin operaciones en curso. Nunca usar `down -v`, eliminar `kaiwa-codex` ni detener servicios ajenos.
 

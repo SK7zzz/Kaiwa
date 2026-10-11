@@ -73,6 +73,25 @@ async function persistedSummary(request, sessionId) {
 async function installPlaybackObserver(page) {
   await page.addInitScript(() => {
     window.__tailnetPlayback = [];
+    window.__tailnetSSE = [];
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (...args) => {
+      const response = await nativeFetch(...args);
+      const url = new URL(response.url);
+      if (url.origin === location.origin && url.pathname === '/api/chat') {
+        const observation = { complete: false, body: '', error: null };
+        window.__tailnetSSE.push(observation);
+        // Observe a separate stream without delaying or replacing the response consumed by the UI.
+        response.clone().text().then(body => {
+          observation.body = body;
+          observation.complete = true;
+        }).catch(error => {
+          observation.error = String(error);
+          observation.complete = true;
+        });
+      }
+      return response;
+    };
     const NativeAudio = window.Audio;
     window.Audio = function(...args) {
       const audio = new NativeAudio(...args);
@@ -113,15 +132,16 @@ async function audioMetrics(page) {
   });
 }
 
+test.use({
+  permissions: ['microphone'],
+  launchOptions: { args: speech ? [
+    '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream',
+    `--use-file-for-fake-audio-capture=${speech.path}%noloop`,
+  ] : [] },
+});
+
 test.describe('Despliegue privado Tailscale: HTTPS y proveedores reales', () => {
   test.skip(!enabled, 'Requiere KAIWA_E2E_TAILSCALE=1 y la BD sintética previa a la migración personal.');
-  test.use({
-    permissions: ['microphone'],
-    launchOptions: { args: speech ? [
-      '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream',
-      `--use-file-for-fake-audio-capture=${speech.path}%noloop`,
-    ] : [] },
-  });
 
   test.beforeEach(async ({ page, request }) => {
     await requireSyntheticProfile(request);
@@ -134,7 +154,7 @@ test.describe('Despliegue privado Tailscale: HTTPS y proveedores reales', () => 
     page.on('request', outgoing => {
       if (outgoing.url().startsWith(`${origin}/api/`) &&
           ['POST', 'PUT', 'DELETE'].includes(outgoing.method())) {
-        origins.push(outgoing.headers().origin);
+        origins.push(outgoing.allHeaders().then(headers => headers.origin));
       }
     });
   });
@@ -144,7 +164,11 @@ test.describe('Despliegue privado Tailscale: HTTPS y proveedores reales', () => 
       await attachVoiceDiagnostics(page, request, testInfo, diagnostics.get(page));
     }
     expect(pageErrors.get(page) || []).toEqual([]);
-    expect((mutationOrigins.get(page) || []).every(value => value === origin)).toBe(true);
+    const origins = await Promise.all(mutationOrigins.get(page) || []);
+    await testInfo.attach('https-mutation-origins', {
+      body: JSON.stringify(origins, null, 2), contentType: 'application/json',
+    });
+    expect(origins.every(value => value === origin)).toBe(true);
   });
 
   for (const width of [1440, 390]) {
@@ -215,6 +239,7 @@ test.describe('Despliegue privado Tailscale: HTTPS y proveedores reales', () => 
     await page.locator('#card-free').click();
     const { session_id: sessionId } = await json(await started);
     await expect(page.locator('#messages .ai .act-trans')).toHaveCount(1);
+    const streamIndex = await page.evaluate(() => window.__tailnetSSE.length);
     const streamed = responseFor(page, '/api/chat');
     const corrected = responseFor(page, '/api/correct');
     const sentence = '昨日、ラーメンを食べますでした。おいしいでした。';
@@ -228,7 +253,15 @@ test.describe('Despliegue privado Tailscale: HTTPS y proveedores reales', () => 
     const stream = await streamed;
     expect(stream.status()).toBe(200);
     expect(stream.headers()['content-type']).toContain('text/event-stream');
-    const events = (await stream.text()).split('\n')
+    await expect.poll(() => page.evaluate(index =>
+      window.__tailnetSSE[index]?.complete === true, streamIndex,
+    )).toBe(true);
+    const observation = await page.evaluate(index => window.__tailnetSSE[index], streamIndex);
+    expect(observation.error).toBe(null);
+    await testInfo.attach('https-codex-stream.sse', {
+      body: observation.body, contentType: 'text/event-stream',
+    });
+    const events = observation.body.split('\n')
       .filter(line => line.startsWith('data: ')).map(line => JSON.parse(line.slice(6)));
     expect(events.some(event => event.error)).toBe(false);
     expect(events.some(event => typeof event.delta === 'string' && event.delta.length > 0)).toBe(true);

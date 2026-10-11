@@ -1,0 +1,197 @@
+{
+  "date": "2026-10-11",
+  "timezone": "Asia/Tokyo",
+  "origin": "https://rushia-1.tail7bb611.ts.net",
+  "deployment": {
+    "sourceCommit": "4139ff9df0353218569d88db33305a822667e078",
+    "branch": "ado/spanish-codex-tutor",
+    "manager": "Dokploy",
+    "host": "Rushia",
+    "containerImage": "sha256:39c08366c7074cb7f78f790dc8de399c89a0daaebdc1c8677b3697eaa0c43017",
+    "imageIndexId": "sha256:11b3e1654b030128792854ed13139b253647bd2c0c352345df904266dc029d09",
+    "funnelEnabled": false
+  },
+  "checks": {
+    "tailscaleAuthentication": {
+      "passed": 7,
+      "durationSeconds": 3.38,
+      "report": "work/deploy/tailscale-security-r2/report/index.html"
+    },
+    "cloudflareRegression": {
+      "passed": 7,
+      "durationSeconds": 5.23,
+      "report": "work/deploy/cloudflare-regression-ts-r1/report/index.html"
+    },
+    "proxyRenderer": {
+      "passed": 7,
+      "report": "evidence/tailscale-renderer/result.json"
+    },
+    "actualIngress": {
+      "project": "kaiwa-private-imwlmy",
+      "origin": "https://rushia-1.tail7bb611.ts.net",
+      "dockerSocket": "/var/run/docker.sock",
+      "startedAt": "2026-10-10T16:25:57.422526+00:00",
+      "checks": [
+        "exact-running-production-services",
+        "configured-and-effective-private-port-bindings",
+        "app-and-proxy-container-hardening",
+        "four-network-service-separation",
+        "persistent-https-serve-without-funnel",
+        "verified-https-profile",
+        "client-spoof-overwritten",
+        "cross-origin-mutation-rejected-with-profile-unchanged",
+        "loopback-missing-and-foreign-identity-rejected",
+        "direct-app-without-secret-rejected",
+        "proxy-unreachable-from-app-egress"
+      ],
+      "containerImage": "sha256:39c08366c7074cb7f78f790dc8de399c89a0daaebdc1c8677b3697eaa0c43017",
+      "imageIndexId": "sha256:11b3e1654b030128792854ed13139b253647bd2c0c352345df904266dc029d09",
+      "clientImageReference": "kaiwa@sha256:11b3e1654b030128792854ed13139b253647bd2c0c352345df904266dc029d09",
+      "result": "passed",
+      "finishedAt": "2026-10-10T16:26:05.809446+00:00"
+    },
+    "httpsBrowser": {
+      "passed": 5,
+      "omitted": 0,
+      "retries": 0,
+      "desktopMobile": "r2: 2 passed; three instrumentation failures subsequently fixed and rerun in r3",
+      "remainingCases": {
+        "startTime": "2026-10-10T16:28:24.297Z",
+        "duration": 69390.167,
+        "expected": 3,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "reports": [
+        "evidence/tailscale-live-r2/report/index.html",
+        "evidence/tailscale-live-r3/report/index.html"
+      ],
+      "coverage": [
+        "desktop 1440px and mobile 390px navigation",
+        "persistent memory CRUD",
+        "real Codex SSE, correction, WAV playback and persisted report",
+        "real GPT Live Japanese synthetic PCM, bidirectional WebRTC, subtitles, mute and persisted report"
+      ]
+    },
+    "personalMigration": {
+      "result": "passed",
+      "integrity": "ok",
+      "tablesExact": [
+        "profile",
+        "sessions",
+        "messages",
+        "vocab",
+        "mistakes",
+        "personal_memories",
+        "companion_messages",
+        "memory_context_state"
+      ],
+      "restartPreservedData": true,
+      "officialCodexLoginReady": true,
+      "personalContentPublished": false
+    },
+    "macosPullHelper": {
+      "platform": "Darwin",
+      "scope": "synthetic SSH and temporary SQLite only",
+      "procedure": "python3 deploy/check-pull-backup.py --evidence-dir <private-directory>",
+      "checks": [
+        {
+          "name": "absolute-spaces",
+          "result": "passed"
+        },
+        {
+          "name": "relative-spaces",
+          "result": "passed"
+        },
+        {
+          "name": "relative-leading-dash",
+          "result": "passed"
+        },
+        {
+          "name": "ssh-partial-output-error",
+          "result": "passed"
+        },
+        {
+          "name": "invalid-header",
+          "result": "passed"
+        },
+        {
+          "name": "incomplete-schema",
+          "result": "passed"
+        },
+        {
+          "name": "corrupt-snapshot",
+          "result": "passed"
+        },
+        {
+          "name": "symlink-directory",
+          "result": "passed"
+        }
+      ],
+      "result": "passed"
+    },
+    "offserverSnapshot": {
+      "result": "passed",
+      "integrity": "ok",
+      "tablesExact": [
+        "profile",
+        "sessions",
+        "messages",
+        "vocab",
+        "mistakes",
+        "personal_memories",
+        "companion_messages",
+        "memory_context_state"
+      ],
+      "outsideRushia": true,
+      "privateFileMode": "0600"
+    },
+    "dailyServerBackup": {
+      "timerActive": true,
+      "schedule": "03:00 Asia/Tokyo plus randomized delay up to 5 minutes",
+      "observedNextAt": "2026-10-11T18:04:57Z",
+      "lastVerifiedExecution": "2026-10-11T03:29:11Z",
+      "serviceResult": "success",
+      "exitStatus": 0,
+      "snapshotIntegrity": "ok",
+      "snapshotFileMode": "0600"
+    },
+    "offserverSnapshotAfterServerBackup": {
+      "result": "passed",
+      "integrity": "ok",
+      "tablesPreserved": [
+        "profile",
+        "sessions",
+        "messages",
+        "vocab",
+        "mistakes",
+        "personal_memories",
+        "companion_messages",
+        "memory_context_state"
+      ],
+      "profileDifferenceOnly": "backup_last",
+      "privateFileMode": "0600",
+      "outsideRushia": true
+    }
+  },
+  "procedures": {
+    "browserAndSecurity": "tests/e2e/README.md",
+    "network": "sudo python3 deploy/check-tailscale-ingress.py --evidence-dir <private-evidence-dir>",
+    "renderer": "sudo python3 deploy/check-tailscale-renderer.py --evidence-dir <private-evidence-dir>",
+    "macosPull": "python3 deploy/check-pull-backup.py --evidence-dir <private-evidence-dir>",
+    "realOffserverCopy": "bash deploy/pull-backup.sh <private-backup-directory>"
+  },
+  "evidenceRoots": {
+    "local": "workspace-relative paths outside the public repository",
+    "remote": "/home/ado/.local/share/kaiwa-deploy/"
+  },
+  "limits": [
+    "Physical iPhone microphone/speaker not tested; mobile viewport emulated.",
+    "HTTPS provider E2E used only synthetic data before personal migration. Do not rerun on migrated production.",
+    "Offserver copy verified manually; recurring offserver pull is not installed.",
+    "Rushia Tailscale node key expires 2026-10-28; renew or review before that date.",
+    "Cloudflare Access/Tunnel is inactive and not validated as the serving architecture.",
+    "Host administrator and local processes form part of the trusted proxy boundary."
+  ]
+}

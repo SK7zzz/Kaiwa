@@ -7,13 +7,16 @@ if [[ $# -ne 1 ]]; then
 fi
 
 umask 077
-[[ ! -L "$1" ]] || { echo 'El directorio de copias no puede ser un enlace simbólico.' >&2; exit 1; }
-mkdir -p -- "$1"
-[[ -O "$1" ]] || { echo 'El directorio privado de copias debe pertenecerte.' >&2; exit 1; }
-chmod 700 -- "$1"
-temporary_path="$(mktemp "$1/.kaiwa-backup.XXXXXX")"
-backup_path="$1/kaiwa-rushia-$(TZ=Asia/Tokyo date +%Y%m%d-%H%M%S)-${temporary_path##*.}.db"
-trap 'rm -f -- "$temporary_path"' EXIT
+backup_directory="$1"
+# BSD chmod does not accept --; prefix relative paths so a dash is never an option.
+[[ "$backup_directory" == /* ]] || backup_directory="./$backup_directory"
+[[ ! -L "$backup_directory" ]] || { echo 'El directorio de copias no puede ser un enlace simbólico.' >&2; exit 1; }
+mkdir -p "$backup_directory"
+[[ -O "$backup_directory" ]] || { echo 'El directorio privado de copias debe pertenecerte.' >&2; exit 1; }
+chmod 700 "$backup_directory"
+temporary_path="$(mktemp "$backup_directory/.kaiwa-backup.XXXXXX")"
+backup_path="$backup_directory/kaiwa-rushia-$(TZ=Asia/Tokyo date +%Y%m%d-%H%M%S)-${temporary_path##*.}.db"
+trap 'rm -f "$temporary_path"' EXIT
 
 ssh_identity="${KAIWA_SSH_IDENTITY:-$HOME/.ssh/rushia_admin_ed25519}"
 ssh_target="${KAIWA_SSH_TARGET:-admin@rushia}"

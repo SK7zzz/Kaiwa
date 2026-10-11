@@ -6,6 +6,10 @@ El proveedor predeterminado utiliza el **Codex app-server oficial**, autenticado
 
 Las conversaciones y el audio de GPT Live se envían a OpenAI. El perfil, las palabras y el historial de aprendizaje se guardan en la base de datos local. Codex gestiona sus credenciales; Kaiwa no copia ni muestra los tokens.
 
+## Despliegue privado en Rushia
+
+La instancia personal está en **[Kaiwa privado](https://rushia-1.tail7bb611.ts.net)**, gestionada por Dokploy. Conecta Tailscale en el Mac o móvil con la cuenta `adonain.dev@gmail.com`. Usa HTTPS con certificado válido y exige esa identidad; no hay Funnel ni puertos públicos de Kaiwa o VOICEVOX. El perfil, historial y memoria del Mac están migrados y comprobados tras reiniciar. Consulta [despliegue, copias y rollback](docs/deployment.md) y [evidencia actual](docs/verification.md).
+
 ## Arrancar en tu Mac
 
 Requisitos: Python **3.10 o posterior**, Codex CLI y un navegador actual. Para GPT Live utiliza una CLI compatible con los métodos experimentales de voz; la integración se ha desarrollado con **Codex 0.159.3**. No asumas que una CLI distinta mantiene el mismo contrato experimental.
