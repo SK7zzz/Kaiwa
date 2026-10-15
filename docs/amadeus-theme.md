@@ -43,10 +43,24 @@ referencias de assets, SVG/XML, manifest/JSON y `git diff --check`.
 [Registro saneado](evidence/amadeus-2026-10-15.json). Informe y trazas privados:
 `work/amadeus/ui-r2/report/index.html`, relativos al workspace.
 
-El despliegue del tema en Rushia está pendiente de publicar este commit.
-Se ha descargado una copia consistente de la base personal antes del cambio.
-El despliegue conservará los volúmenes y verificará la persistencia sin
-introducir datos sintéticos en producción.
+El tema está **desplegado en [Rushia privado](https://rushia-1.tail7bb611.ts.net)**
+desde el commit `cfe4eb19b764ff33a5847f317e0ade9af686b341`, mediante Dokploy.
+Se comprobaron HTTPS real, seis recursos idénticos al checkout por SHA-256,
+siete endpoints JSON y Codex preparado. La revisión de navegador real cubrió
+Inicio/Asistente en escritorio y memoria/Inicio/navegación a 390/320 px.
+No hubo mutaciones de prueba en producción.
+
+Las copias consistentes anterior y posterior tienen integridad SQLite correcta
+y sus ocho tablas coinciden exactamente, incluidos perfil y ajustes. Se
+conservan los tres volúmenes. Tailscale Serve mantiene HTTPS, sin Funnel;
+el proxy sólo publica loopback y rechaza identidad ausente o ajena (403).
+El redeploy produjo un error transitorio de carga durante la sustitución del
+contenedor; la recarga y los endpoints reales pasaron después de quedar sano.
+
+[GitHub Actions: 20/20 E2E aprobados en Linux/Chromium](https://github.com/SK7zzz/Kaiwa/actions/runs/38754525715).
+El artefacto contiene informe, trazas y capturas sintéticas, con retención de
+siete días. La primera publicación del workflow falló al usar `runner.temp`
+en el contexto de job; se corrigió preparando rutas mediante `$GITHUB_ENV`.
 
 ## Procedimiento reproducible
 

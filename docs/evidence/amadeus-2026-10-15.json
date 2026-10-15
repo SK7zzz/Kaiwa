@@ -32,11 +32,144 @@
     ]
   },
   "deployment": {
-    "status": "pending",
-    "backupBefore": "verified private SQLite snapshot"
+    "status": "deployed and verified",
+    "origin": "https://rushia-1.tail7bb611.ts.net",
+    "sourceCommit": "cfe4eb19b764ff33a5847f317e0ade9af686b341",
+    "containerImage": "sha256:4eb205a5af4bf0777bbfdd2f1eb4743d57ca2f1fdb5213f4c2e56752a0f2ad06",
+    "imageRepoDigest": "kaiwa@sha256:4eb205a5af4bf0777bbfdd2f1eb4743d57ca2f1fdb5213f4c2e56752a0f2ad06",
+    "health": "healthy",
+    "persistentVolumes": [
+      "kaiwa-data",
+      "kaiwa-codex",
+      "kaiwa-backups"
+    ],
+    "databaseIntegrityBeforeAfter": "ok",
+    "tablesComparedExactly": [
+      "profile",
+      "sessions",
+      "messages",
+      "vocab",
+      "mistakes",
+      "personal_memories",
+      "companion_messages",
+      "memory_context_state"
+    ],
+    "allTablesExact": true,
+    "privatePersistenceEvidence": "work/deploy/private/amadeus-persistence.json",
+    "serveHttps443": true,
+    "funnelEnabled": false,
+    "proxyPublishedPort": "127.0.0.1:18130",
+    "missingIdentityStatus": 403,
+    "foreignIdentityStatus": 403,
+    "productionHttp": {
+      "origin": "https://rushia-1.tail7bb611.ts.net",
+      "result": "passed",
+      "mode": "GET only, TLS verification enabled",
+      "assets": [
+        {
+          "path": "/",
+          "status": 200,
+          "sha256": "1fb6d4e0b437166ab473c0aa65cfd10cdcec9e3dc8adc7abfbcf3141e231c594",
+          "localMatch": true,
+          "bytes": 31849
+        },
+        {
+          "path": "/static/style.css",
+          "status": 200,
+          "sha256": "125868e1c1c43e94782e8f3adfaf3a5c64ef757ef6483dcbf02e4e1d6ed6a4a1",
+          "localMatch": true,
+          "bytes": 53727
+        },
+        {
+          "path": "/static/app.js",
+          "status": 200,
+          "sha256": "edf8b0ed7b09a249f754506acc18f4ffb8dc0d6b2094a50e32578685fa990022",
+          "localMatch": true,
+          "bytes": 84123
+        },
+        {
+          "path": "/static/manifest.json",
+          "status": 200,
+          "sha256": "98dd2491a88b42d30d9371cb41280b0ae6bc8e88aacd3ad235942ec9616a6400",
+          "localMatch": true,
+          "bytes": 727
+        },
+        {
+          "path": "/static/brand/amadeus-kurisu.webp",
+          "status": 200,
+          "sha256": "fb38227d050fdfb66f8bc429eec34021207c385e067d5c002be6c8a5d7b59828",
+          "localMatch": true,
+          "bytes": 109946
+        },
+        {
+          "path": "/static/brand/amadeus-mark.svg",
+          "status": 200,
+          "sha256": "d2a585852a14b260a19144e4d685bd0ca78f629eea7950b86bce6dd2b297859d",
+          "localMatch": true,
+          "bytes": 436
+        }
+      ],
+      "api": [
+        {
+          "path": "/healthz",
+          "status": 200,
+          "validJson": true
+        },
+        {
+          "path": "/api/health",
+          "status": 200,
+          "validJson": true,
+          "provider": "codex",
+          "llmReady": true
+        },
+        {
+          "path": "/api/profile",
+          "status": 200,
+          "validJson": true
+        },
+        {
+          "path": "/api/dashboard",
+          "status": 200,
+          "validJson": true
+        },
+        {
+          "path": "/api/memory",
+          "status": 200,
+          "validJson": true
+        },
+        {
+          "path": "/api/companion",
+          "status": 200,
+          "validJson": true
+        },
+        {
+          "path": "/api/codex/status",
+          "status": 200,
+          "validJson": true,
+          "ready": true,
+          "loggedIn": true
+        }
+      ],
+      "browser": {
+        "desktop": "home and assistant loaded without error",
+        "mobile": "390 memory panel and 320 home/navigation reviewed",
+        "mutations": false
+      }
+    }
   },
   "navigationRegression": {
     "before": "work/amadeus/nav-before/result.json: 19 passed, 320px label spacing failed",
     "after": "20/20 passed; label margins >=2px at desktop/390/320"
+  },
+  "ci": {
+    "result": "success",
+    "testsPassed": 20,
+    "os": "ubuntu-24.04",
+    "browser": "Chromium",
+    "runUrl": "https://github.com/SK7zzz/Kaiwa/actions/runs/38754525715",
+    "commit": "cfe4eb19b764ff33a5847f317e0ade9af686b341",
+    "artifactUrl": "https://github.com/SK7zzz/Kaiwa/actions/runs/38754525715/artifacts/11983440510",
+    "artifactSha256": "8a16f386b35f9c0dbcd495bed105e8e064d79846f033ac61263020215c5081ef",
+    "retentionDays": 7
   }
 }

@@ -2,8 +2,10 @@
 
 ## Tema Amadeus — 15 de octubre de 2026
 
-20/20 E2E aprobados en Chrome con SQLite temporal aislada y revisión visual
-de escritorio y móvil. El despliegue del tema está pendiente de publicación.
+Tema desplegado en Rushia desde `cfe4eb19b764ff33a5847f317e0ade9af686b341`.
+20/20 E2E aprobados en Mac/Chrome y Linux/Chromium con SQLite temporal aislada;
+revisión visual real en escritorio y móvil, HTTPS y Codex preparados.
+Las ocho tablas personales coinciden exactamente antes/después del redeploy.
 [Alcance y reproducción](amadeus-theme.md) · [Registro saneado](evidence/amadeus-2026-10-15.json).
 
 ## Despliegue anterior — 11 de octubre de 2026, Asia/Tokyo
