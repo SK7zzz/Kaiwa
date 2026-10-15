@@ -25,11 +25,14 @@ distintas superficies y sustituye las ilustraciones claras del diseño anterior.
 ## Verificación y estado
 
 El 15 de octubre de 2026 pasaron **20/20 E2E**, sin omisiones ni reintentos,
-en Chrome sobre FastAPI/Uvicorn real con SQLite temporal aislada (26,1 s).
+en Chrome sobre FastAPI/Uvicorn real con SQLite temporal aislada (22,7 s en la última pasada).
 Incluyen los 15 recorridos UI existentes y cinco del tema: siete vistas a
 1440/390/320 px, japonés/furigana, conversación sintética, carga/error/reintento,
 contraste, teclado, diálogos, movimiento reducido y retrato de la llamada.
 Se revisaron las capturas de escritorio y móvil, ajustes, asistente e informe.
+La revisión detectó etiquetas demasiado juntas a 320 px: una prueba E2E
+reprodujo el fallo antes de abreviar Léxico/Nivel y separar las etiquetas,
+conservando sus nombres accesibles completos.
 
 Las respuestas del tutor y las interacciones de voz son sintéticas en esta
 pasada. No consume cuota ni acredita una llamada real o un micrófono físico;
@@ -38,7 +41,7 @@ el proveedor, autenticación y lógica pedagógica no han cambiado.
 También pasaron sintaxis JavaScript, IDs preservados/sin duplicados,
 referencias de assets, SVG/XML, manifest/JSON y `git diff --check`.
 [Registro saneado](evidence/amadeus-2026-10-15.json). Informe y trazas privados:
-`work/amadeus/ui-r1/report/index.html`, relativos al workspace.
+`work/amadeus/ui-r2/report/index.html`, relativos al workspace.
 
 El despliegue del tema en Rushia está pendiente de publicar este commit.
 Se ha descargado una copia consistente de la base personal antes del cambio.

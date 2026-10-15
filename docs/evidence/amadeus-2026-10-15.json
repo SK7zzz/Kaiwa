@@ -1,5 +1,5 @@
 {
-  "startedAt": "2026-10-15T14:40:58.209Z",
+  "startedAt": "2026-10-15T14:46:17.737Z",
   "suites": [
     "ui.spec.mjs",
     "amadeus.spec.mjs"
@@ -9,11 +9,11 @@
   "node": "v24.14.1",
   "status": "passed",
   "testsExitCode": 0,
-  "finishedAt": "2026-10-15T14:41:25.661Z",
+  "finishedAt": "2026-10-15T14:46:41.888Z",
   "storage": "SQLite temporal aislada; no incluida en artefactos",
   "stats": {
-    "startTime": "2026-10-15T14:40:59.425Z",
-    "duration": 26052.766,
+    "startTime": "2026-10-15T14:46:18.935Z",
+    "duration": 22716.132,
     "expected": 20,
     "skipped": 0,
     "unexpected": 0,
@@ -21,8 +21,8 @@
   },
   "command": "KAIWA_E2E_CHANNEL=chrome KAIWA_E2E_PYTHON=.venv/bin/python KAIWA_E2E_ARTIFACTS=/directorio/privado/amadeus-ui node tests/e2e/ci-run.mjs",
   "evidence": {
-    "report": "work/amadeus/ui-r1/report/index.html",
-    "results": "work/amadeus/ui-r1/results/",
+    "report": "work/amadeus/ui-r2/report/index.html",
+    "results": "work/amadeus/ui-r2/results/",
     "scope": "FastAPI real y SQLite temporal; respuestas UI/proveedor sintéticas; sin cuota ni datos personales",
     "visualReview": [
       "1440 desktop home",
@@ -34,5 +34,9 @@
   "deployment": {
     "status": "pending",
     "backupBefore": "verified private SQLite snapshot"
+  },
+  "navigationRegression": {
+    "before": "work/amadeus/nav-before/result.json: 19 passed, 320px label spacing failed",
+    "after": "20/20 passed; label margins >=2px at desktop/390/320"
   }
 }

@@ -126,7 +126,8 @@ async function layout(page, name) {
     views: [...document.querySelectorAll('.view:not(.hidden)')].map(view => view.id),
     navigation: [...document.querySelectorAll('.nav-btn')].map(button => {
       const rect = button.getBoundingClientRect();
-      return { view: button.dataset.view, left: rect.left, right: rect.right, height: rect.height };
+      const label = button.querySelector("em").getBoundingClientRect();
+      return { view: button.dataset.view, left: rect.left, right: rect.right, height: rect.height, labelLeft: label.left, labelRight: label.right };
     }),
   }));
   expect(metrics.document, name).toBeLessThanOrEqual(metrics.viewport + 1);
@@ -136,6 +137,8 @@ async function layout(page, name) {
     expect(button.left, `${name}: ${button.view}`).toBeGreaterThanOrEqual(-1);
     expect(button.right, `${name}: ${button.view}`).toBeLessThanOrEqual(metrics.viewport + 1);
     expect(button.height, `${name}: ${button.view}`).toBeGreaterThanOrEqual(44);
+    expect(button.labelLeft - button.left, `${name}: margen izquierdo ${button.view}`).toBeGreaterThanOrEqual(2);
+    expect(button.right - button.labelRight, `${name}: margen derecho ${button.view}`).toBeGreaterThanOrEqual(2);
   }
   return { name, ...metrics };
 }

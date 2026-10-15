@@ -92,3 +92,5 @@ El micro usa un WAV sintético generado con macOS Kyoko; proveedor, WebRTC, tran
 63. CI ejecuta por error conversaciones reales, lee secretos o publica SQLite/configuración. Seleccionar exclusivamente `ui.spec.mjs` y `amadeus.spec.mjs`, sin instalar/login de Codex ni secretos; permisos `contents: read`, dependencias fijadas y upload limitado a HTML/JSON/trazas/capturas/log del servidor, con retención de siete días.
 
 Los controles de CI se ejercitan con el servidor y navegador reales en Linux. Validar YAML/sintaxis o listar los tests no demuestra que el runner haya arrancado ni que los E2E hayan pasado; para confirmarlo se necesita el resultado y artefacto del job de GitHub Actions.
+
+64. A 320 px las etiquetas de la navegación inferior se tocan aunque los botones no desborden. Medir la caja de cada etiqueta visible y exigir al menos 2 px de margen interior a ambos lados; conservar nombres accesibles completos y verificar los siete destinos.

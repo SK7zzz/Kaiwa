@@ -65,7 +65,7 @@ input[type=checkbox], input[type=range] { accent-color: var(--accent); }
   text-align: left; transition: background .15s, color .15s;
 }
 .nav-btn em { font-style: normal; }
-.nav-short { display: none; }
+.nav-short, .nav-compact { display: none; }
 .nav-btn:hover { background: var(--bg); color: var(--ink); }
 .nav-btn.active { background: var(--accent-soft); border-color: #665136; border-left: 3px solid var(--accent); color: var(--accent); }
 .nav-btn .icon { width: 20px; height: 20px; }
@@ -655,6 +655,9 @@ ruby rt { font-size: .5em; color: var(--coral); font-weight: 600; }
   .hero-actions .btn { font-size: .74rem; padding: 11px 9px; line-height: 1.4; }
 }
 @media (max-width: 359px) {
+  .nav-roomy { display: none; }
+  .nav-compact { display: inline; }
+  .nav-btn em { letter-spacing: -.015em; }
   .view { padding: 20px 14px 36px; }
   .hero-copy h2 { font-size: 2rem; }
   .hero-copy { padding: 22px; }

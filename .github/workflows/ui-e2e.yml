@@ -18,13 +18,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
-      KAIWA_PLAYWRIGHT_ROOT: ${{ runner.temp }}/kaiwa-playwright/node_modules
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/kaiwa-browsers
-      KAIWA_E2E_ARTIFACTS: ${{ runner.temp }}/kaiwa-ui-evidence
       KAIWA_E2E_CHANNEL: chromium
       KAIWA_E2E_PYTHON: python
       KAIWA_DEPLOYMENT: local
     steps:
+      - name: Configure isolated runtime paths
+        run: |
+          printf 'KAIWA_PLAYWRIGHT_ROOT=%s/kaiwa-playwright/node_modules\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'PLAYWRIGHT_BROWSERS_PATH=%s/kaiwa-browsers\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'KAIWA_E2E_ARTIFACTS=%s/kaiwa-ui-evidence\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
