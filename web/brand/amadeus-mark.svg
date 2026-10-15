@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Marca Amadeus Kaiwa">
+  <rect width="96" height="96" rx="8" fill="#090b0d"/>
+  <path d="M13 73 47 16h13l24 57H70L52 29 27 73Z" fill="#eab35c"/>
+  <path d="M22 57h49v9H17Z" fill="#eab35c"/>
+  <path d="m53 8-9 80M8 80h75" fill="none" stroke="#b58238" stroke-width="2"/>
+  <path d="m70 19 17 7-11 25" fill="none" stroke="#eab35c" stroke-width="3"/>
+</svg>

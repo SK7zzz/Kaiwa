@@ -403,9 +403,7 @@ async function loadHome() {
 }
 
 function scenCard(s) {
-  const art = { ramen: "ramen", train: "train", directions: "neighborhood", greetings: "study" }[s.id];
-  return `<button type="button" class="scen-card${art ? " illustrated" : ""}" data-id="${s.id}" data-kind="${s.kind}" data-search="${esc(normalizePractice(`${s.title} ${s.title_ja} ${s.description} ${s.category}`))}">
-    ${art ? `<img class="scen-art" src="/static/brand/${art}.webp" alt="" width="384" height="256" loading="lazy">` : ""}
+  return `<button type="button" class="scen-card" data-id="${s.id}" data-kind="${s.kind}" data-search="${esc(normalizePractice(`${s.title} ${s.title_ja} ${s.description} ${s.category}`))}">
     <span class="scen-body"><span class="scen-icon">${icon(ICON_MAP[s.id] || "message-circle")}</span>
     <strong class="scen-title">${esc(s.title)}</strong><span class="ja" lang="ja">${esc(s.title_ja)}</span>
     <span class="scen-description">${esc(s.description)}</span><span class="lv">${esc(s.levels)}</span></span>
@@ -1418,7 +1416,7 @@ function renderReviewCard() {
   const area = $("#review-area");
   refreshDueBadge();
   if (reviewIdx >= reviewQueue.length) {
-    area.innerHTML = `<div class="review-done empty-state"><img src="/static/brand/study.webp" alt="" width="240" height="160"><h3>Todo listo para tu próxima práctica</h3>
+    area.innerHTML = `<div class="review-done empty-state"><img class="empty-lab-mark" src="/static/brand/amadeus-mark.svg" alt="" width="96" height="96"><h3>Todo listo para tu próxima práctica</h3>
       <p>No hay palabras pendientes de repaso. Guarda palabras durante tus conversaciones para volver a verlas aquí.</p><button class="btn primary" data-action="practice">Ir a practicar</button></div>`;
     return;
   }
@@ -1476,7 +1474,7 @@ async function loadVocab() {
 function renderVocab() {
   const list = state.vocab || [];
   if (!list.length) {
-    $("#vocab-list").innerHTML = `<div class="empty-state"><img src="/static/brand/study.webp" alt="" width="240" height="160"><h3>Tu colección empieza con una palabra</h3><p>Todavía no tienes palabras. Pulsa una palabra en una conversación para guardarla.</p><button class="btn primary" data-action="practice">Ir a practicar</button></div>`;
+    $("#vocab-list").innerHTML = `<div class="empty-state"><img class="empty-lab-mark" src="/static/brand/amadeus-mark.svg" alt="" width="96" height="96"><h3>Tu colección empieza con una palabra</h3><p>Todavía no tienes palabras. Pulsa una palabra en una conversación para guardarla.</p><button class="btn primary" data-action="practice">Ir a practicar</button></div>`;
     return;
   }
   const slice = list.slice(0, state.vocabShown);

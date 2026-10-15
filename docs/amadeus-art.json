@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-15",
+  "tool": "image_gen__imagegen (integrated GPT Image)",
+  "model": "not exposed by tool",
+  "asset": "web/brand/amadeus-kurisu.webp",
+  "dimensions": [
+    1672,
+    941
+  ],
+  "bytes": 109946,
+  "prompt": "Use case: stylized-concept.\nAsset type: final raster hero illustration for Ado's personal Japanese tutor, inspired by the Amadeus interface in Steins;Gate.\nInput images: Image 1 is a reference only for the restrained almost-black technical laboratory atmosphere and subtle amber light, not its UI, logo, writing or screen border. Image 2 is a reference for the identity, face, chestnut/copper hair, white laboratory coat and red necktie of Kurisu Makise.\nPrimary request: a polished anime cel-shaded illustration of Kurisu Makise from Steins;Gate / Amadeus, a frontal waist-up bust, looking toward the viewer with both eyes open and a friendly, intelligent, composed expression. White laboratory coat over a light collared shirt and red necktie; long copper-chestnut hair and violet-blue eyes.\nComposition/framing: landscape 16:9 or 3:2 composition, high resolution. Position the character entirely in the RIGHT HALF, face around x=76%, with the top of her head comfortably inside the frame and bust reaching the bottom. Reserve the LEFT HALF as usable near-black negative space for real HTML interface text. The artwork must remain useful when cropped to a wide hero.\nScene/backdrop: very dark #090b0d quiet laboratory / Amadeus atmosphere, extremely faint technical grid and distant dark lab silhouettes, understated soft amber illumination. Do not draw a user interface.\nStyle/medium: refined Japanese anime key visual, precise clean line work, deliberate cel shading, gentle detail in hair, expressive but adult face, restrained cinematic amber rim light. Keep the mood thoughtful and warm, suitable for a language tutor.\nColor palette: charcoal-black, muted amber, copper hair, ivory-white coat and a red tie. The left half should stay dark and uncluttered.\nText: none.\nAvoid: all text, words, letters, numbers, symbols resembling writing, logos, signatures, watermarks, interface panels, menus, buttons, fake terminal code, screen borders, extra people, erotic framing, exaggerated anatomy, photorealism, heavy neon glows.\n",
+  "referenceRoles": [
+    "Amadeus interface: charcoal/amber laboratory atmosphere",
+    "Kurisu: character appearance, lab coat, red tie and copper hair"
+  ],
+  "preparation": "WebP quality 92, no resizing; original preserved privately outside repository",
+  "logo": "Native SVG geometry with PNG raster exports for iOS/PWA; no generated logo bitmap"
+}

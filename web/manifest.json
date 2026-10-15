@@ -1,15 +1,30 @@
 {
-  "name": "Kaiwa 会話 — Tu japonés",
-  "short_name": "Kaiwa",
-  "description": "Tu espacio personal para practicar japonés con ayuda en español",
+  "name": "Amadeus / Kaiwa — Tu japonés",
+  "short_name": "Amadeus",
+  "description": "Tu laboratorio personal para practicar japonés con ayuda en español",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f7f4ec",
-  "theme_color": "#f7f4ec",
+  "background_color": "#090b0d",
+  "theme_color": "#090b0d",
   "icons": [
-    { "src": "/static/brand/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/static/brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    {
+      "src": "/static/brand/amadeus-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/brand/amadeus-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/brand/amadeus-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ]
 }

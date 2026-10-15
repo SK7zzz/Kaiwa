@@ -148,6 +148,47 @@ La instrumentación observa las APIs reales; no cambia audio, conexión, proveed
 
 ## Revisión visual y UX sin llamadas al tutor
 
+### Tema Amadeus: preparado antes de implementar la UI
+
+`amadeus.spec.mjs` añade cinco recorridos para los riesgos 52–57: las siete vistas a 1440/390/320 px, assets reales de Kurisu, contraste de texto/inputs/placeholders, fondo oscuro y acento ámbar visible, japonés con furigana y nombres latinos con espacios, compositor utilizable, carga/error 503/recuperación vacía, preferencia de movimiento reducido y foco de diálogos/voz. Los contratos de imagen usan `img.amadeus-portrait` en Inicio, Asistente y `#call-avatar`, con alternativa textual y carga real. Las comprobaciones usan acciones y geometría/colores computados; no dependen de una captura CSS fija ni de los textos editoriales del tema anterior.
+
+La nueva suite intercepta perfil, ajustes, salud, proveedores, voces, memoria, asistente, dashboard y vocabulario con datos sintéticos. Sesión, streaming y corrección del recorrido de japonés son sintéticos; toda otra mutación se bloquea. Para inspeccionar la llamada se deja pendiente exclusivamente `getUserMedia`, sin obtener micrófono, crear sesión, abrir WebRTC o consumir IA. Esto prueba representación/acciones del cliente; no sustituye la integración real con Codex ni acredita voz real. El cálculo de contraste compone fondos CSS sólidos y alfas: no certifica todas las posiciones de imágenes/gradientes.
+
+Ejecutar junto con los **15 E2E existentes de `ui.spec.mjs`**, que comprueban búsquedas, formularios, borradores/guardado de Ajustes, recuperación de errores, diálogos, IME y navegación. Ambos archivos suman 20 tests y no consumen cuota de IA. Usar un servidor dedicado con una base nueva, nunca el perfil personal ni el despliegue de producción:
+
+```sh
+KAIWA_DB_PATH=/ruta/absoluta/work/amadeus/synthetic-001.db \
+.venv/bin/python -m uvicorn server.main:app --host 127.0.0.1 --port 18145
+
+KAIWA_E2E_BASE_URL=http://127.0.0.1:18145 \
+KAIWA_E2E_ARTIFACTS=/ruta/absoluta/work/amadeus/ui \
+node tests/e2e/run.mjs ui.spec.mjs amadeus.spec.mjs
+```
+
+En Linux especificar `KAIWA_PLAYWRIGHT_ROOT` y `KAIWA_E2E_CHANNEL=chromium` cuando el runtime no esté en la ruta Mac predeterminada. El directorio `work/amadeus/ui`, fuera del repo, recoge informe HTML, resultados JSON, trazas y capturas. Los nuevos adjuntos conservan ratios de contraste, colores efectivos, tipografía, geometría de vistas/controles/retratos, animaciones activas y mutaciones sintéticas observadas. Abrir las capturas/trazas para complementar las comprobaciones automáticas.
+
+**Estado de preparación:** sintaxis y listado de los 20 tests comprobados; los E2E de Amadeus todavía no se han ejecutado sobre una implementación. Su resultado no se declara verde hasta que el tema esté integrado y exista un servidor de pruebas accesible. `personal.spec.mjs`, `kaiwa.spec.mjs`, `modes.spec.mjs` y `voice.spec.mjs` siguen disponibles para la regresión funcional real posterior; requieren su perfil/base sintéticos y algunos consumen cuota, por lo que no forman parte de este comando visual sin IA.
+
+### UI E2E en GitHub Actions y Linux
+
+`.github/workflows/ui-e2e.yml` ejecuta esos 20 E2E después de pushes a `ado/spanish-codex-tutor`, en pull requests y de forma manual. Usa Ubuntu 24.04, Python 3.12, Node 24, `requirements.lock` y Playwright 1.62.1 con Chromium instalado en el directorio temporal del runner. No instala ni autentica Codex, no necesita secretos y sólo concede `contents: read`. Los jobs anteriores de la misma rama/PR se cancelan; el límite total es de 15 minutos.
+
+`ci-run.mjs` arranca Uvicorn en loopback 18145 con una SQLite nueva dentro de `mkdtemp`, limpia configuración de despliegue/proveedores heredada y elimina API keys del entorno del proceso aislado. Usa **`KAIWA_DEPLOYMENT=local`**, el modo local admitido por `server/security.py`; `development` no es un valor admitido. Rechaza un puerto ocupado, espera `/healthz` con un límite de 60 segundos y verifica que el perfil esté vacío antes de ejecutar exclusivamente `ui.spec.mjs` y `amadeus.spec.mjs`. Devuelve el código de Playwright, falla ante errores/cancelación, termina sus grupos de procesos y elimina sólo su directorio temporal. No abre ni borra `data/kaiwa.db`.
+
+Repetición con un runtime Playwright ya instalado en Linux (también sirve macOS cuando permita iniciar el servidor):
+
+```sh
+KAIWA_E2E_PYTHON=python \
+KAIWA_PLAYWRIGHT_ROOT=/ruta/absoluta/runtime/node_modules \
+KAIWA_E2E_CHANNEL=chromium \
+KAIWA_E2E_ARTIFACTS=/ruta/absoluta/work/amadeus/ci-001 \
+node tests/e2e/ci-run.mjs
+```
+
+Requiere instalar primero `requirements.lock` y `playwright@1.62.1`, y ejecutar `npx --no-install playwright install chromium --with-deps` desde el directorio donde se instaló Playwright. Si Chromium se instaló con `PLAYWRIGHT_BROWSERS_PATH` personalizado, conservar esa variable al lanzar el runner. El script usa grupos POSIX y rechaza Windows explícitamente.
+
+El artefacto de Actions conserva durante siete días `report/`, `results/` (trazas/capturas), `result.json`, `server.log` y `run.json`, incluso cuando los E2E fallan. La SQLite y la configuración quedan fuera del upload; `run.json` registra condiciones, tiempos, estado y código de salida sin valores de autenticación. Un fallo anterior a la instalación/arranque puede no producir informe de Playwright y debe revisarse en el log del job. La sintaxis y el listado locales no acreditan CI: confirmar el resultado del job y abrir su artefacto antes de declarar estos E2E verificados.
+
 ```sh
 node tests/e2e/run.mjs ui.spec.mjs
 ```

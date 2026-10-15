@@ -1,6 +1,12 @@
 # Verificación de la adaptación personal
 
-## Estado actual desplegado — 11 de octubre de 2026, Asia/Tokyo
+## Tema Amadeus — 15 de octubre de 2026
+
+20/20 E2E aprobados en Chrome con SQLite temporal aislada y revisión visual
+de escritorio y móvil. El despliegue del tema está pendiente de publicación.
+[Alcance y reproducción](amadeus-theme.md) · [Registro saneado](evidence/amadeus-2026-10-15.json).
+
+## Despliegue anterior — 11 de octubre de 2026, Asia/Tokyo
 
 [Registro saneado de este despliegue](evidence/tailscale-deployment-2026-10-11.json):
 resultados, imagen, procedimientos y límites sin credenciales ni contenido personal.

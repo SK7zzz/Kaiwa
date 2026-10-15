@@ -2,6 +2,8 @@
 
 Fork personal de [Kaiwa](https://github.com/yeshsanchez/Kaiwa), con interfaz y ayudas en español, conversación en japonés, situaciones prácticas, palabras guardadas y repaso espaciado. El nivel, los intereses y los objetivos se eligen al entrar y se pueden cambiar en Ajustes. El nivel inicial no presupone que conozcas hiragana, katakana o kanji.
 
+La personalización **Amadeus / Steins;Gate** incorpora negro y ámbar, identidad de laboratorio y Kurisu en la práctica y la llamada. [Cambios, arte y estado de verificación](docs/amadeus-theme.md). Verificado con 20 E2E en escritorio y móvil; el estado del despliegue figura en ese registro.
+
 El proveedor predeterminado utiliza el **Codex app-server oficial**, autenticado con tu cuenta de **ChatGPT Pro**. Este recorrido no solicita API keys ni requiere saldo de la API: consume los límites de uso que tenga disponibles tu cuenta. OpenAI documenta el uso de [app-server en aplicaciones locales y de código abierto](https://learn.chatgpt.com/docs/app-server#auth-endpoints) y la [autenticación con ChatGPT](https://learn.chatgpt.com/docs/auth#sign-in-with-chatgpt). Las funciones de API de otros proveedores siguen disponibles como opción independiente en Ajustes.
 
 Las conversaciones y el audio de GPT Live se envían a OpenAI. El perfil, las palabras y el historial de aprendizaje se guardan en la base de datos local. Codex gestiona sus credenciales; Kaiwa no copia ni muestra los tokens.

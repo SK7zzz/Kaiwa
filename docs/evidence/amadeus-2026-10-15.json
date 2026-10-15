@@ -1,0 +1,38 @@
+{
+  "startedAt": "2026-10-15T14:40:58.209Z",
+  "suites": [
+    "ui.spec.mjs",
+    "amadeus.spec.mjs"
+  ],
+  "origin": "http://127.0.0.1:18145",
+  "platform": "darwin",
+  "node": "v24.14.1",
+  "status": "passed",
+  "testsExitCode": 0,
+  "finishedAt": "2026-10-15T14:41:25.661Z",
+  "storage": "SQLite temporal aislada; no incluida en artefactos",
+  "stats": {
+    "startTime": "2026-10-15T14:40:59.425Z",
+    "duration": 26052.766,
+    "expected": 20,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "command": "KAIWA_E2E_CHANNEL=chrome KAIWA_E2E_PYTHON=.venv/bin/python KAIWA_E2E_ARTIFACTS=/directorio/privado/amadeus-ui node tests/e2e/ci-run.mjs",
+  "evidence": {
+    "report": "work/amadeus/ui-r1/report/index.html",
+    "results": "work/amadeus/ui-r1/results/",
+    "scope": "FastAPI real y SQLite temporal; respuestas UI/proveedor sintéticas; sin cuota ni datos personales",
+    "visualReview": [
+      "1440 desktop home",
+      "390 home/assistant/settings/voice",
+      "320 navigation and Japanese",
+      "desktop report error/retry"
+    ]
+  },
+  "deployment": {
+    "status": "pending",
+    "backupBefore": "verified private SQLite snapshot"
+  }
+}

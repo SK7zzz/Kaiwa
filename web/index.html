@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#f7f4ec">
+<meta name="theme-color" content="#090b0d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Kaiwa">
-<title>Kaiwa 会話 — Tu tutor de japonés</title>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Amadeus">
+<title>Amadeus / Kaiwa — Tu laboratorio de japonés</title>
 <link rel="stylesheet" href="/static/style.css">
 <link rel="manifest" href="/static/manifest.json">
-<link rel="apple-touch-icon" href="/static/brand/icon-180.png">
-<link rel="icon" type="image/png" href="/static/brand/icon-192.png">
+<link rel="apple-touch-icon" href="/static/brand/amadeus-icon-180.png">
+<link rel="icon" type="image/svg+xml" href="/static/brand/amadeus-mark.svg">
 </head>
 <body>
 <div id="app">
   <nav id="sidebar" aria-label="Navegación principal">
-    <div class="logo"><img class="brand-mark" src="/static/brand/kaiwa-mark.png" alt="" width="48" height="48"><span class="brand-copy">Kaiwa<small>会話 · Tu japonés</small></span></div>
+    <div class="logo"><img class="brand-mark" src="/static/brand/amadeus-mark.svg" alt="" width="48" height="48"><span class="brand-copy">AMADEUS<small>KAIWA · PERSONAL LAB</small></span></div>
     <button class="nav-btn active" data-view="home" aria-current="page"><svg class="icon"><use href="/static/icons.svg#house"/></svg><em>Inicio</em></button>
     <button class="nav-btn" data-view="companion" aria-label="Asistente personal"><svg class="icon"><use href="/static/icons.svg#messages-square"/></svg><em><span class="nav-full">Asistente</span><span class="nav-short">Guía</span></em></button>
     <button class="nav-btn" data-view="review"><svg class="icon"><use href="/static/icons.svg#layers"/></svg><em>Repaso</em> <span id="due-badge" class="badge hidden"></span></button>
@@ -25,7 +25,7 @@
     <button class="nav-btn" data-view="dict" aria-label="Diccionario"><svg class="icon"><use href="/static/icons.svg#languages"/></svg><em><span class="nav-full">Diccionario</span><span class="nav-short">Buscar</span></em></button>
     <button class="nav-btn" data-view="progress"><svg class="icon"><use href="/static/icons.svg#trending-up"/></svg><em>Progreso</em></button>
     <button class="nav-btn" data-view="settings"><svg class="icon"><use href="/static/icons.svg#settings"/></svg><em>Ajustes</em></button>
-    <p class="sidebar-note">Tu espacio para hablar,<br>equivocarte y seguir.</p>
+    <p class="sidebar-note"><strong>PERSONAL LANGUAGE LAB</strong>Habla, equivócate,<br>vuelve a intentarlo.</p>
     <div id="health" class="health" role="status"></div>
   </nav>
 
@@ -34,8 +34,8 @@
     <section id="view-home" class="view">
       <header class="home-head">
         <div>
-          <div class="mobile-brand"><img class="brand-mark" src="/static/brand/kaiwa-mark.png" alt="" width="32" height="32"><span>Kaiwa <small>会話</small></span></div>
-          <p class="eyebrow">TU JAPONÉS, A TU RITMO</p>
+          <div class="mobile-brand"><img class="brand-mark" src="/static/brand/amadeus-mark.svg" alt="" width="32" height="32"><span>AMADEUS <small>KAIWA · 会話</small></span></div>
+          <p class="eyebrow">AMADEUS / JAPANESE LAB</p>
           <h1 id="greeting">こんにちは！</h1>
           <p id="home-sub" class="sub">Un poco de japonés, cada día. Conversa, descubre y repasa.</p>
         </div>
@@ -45,12 +45,12 @@
 
       <div class="home-hero">
         <div class="hero-copy">
-          <p class="eyebrow">一歩ずつ · PASO A PASO</p>
-          <h2>Un poco más cerca<br>de hablar japonés.</h2>
-          <p>Una charla, una palabra, una historia. Practica con ayuda en español y descubre tu propia forma de aprender.</p>
+          <p class="eyebrow"><span class="lab-indicator" aria-hidden="true"></span> TU ESPACIO DE PRÁCTICA</p>
+          <h2>Tu japonés,<br>en otra <em>línea temporal.</em></h2>
+          <p>Conversa, prueba y vuelve a intentarlo. Un laboratorio personal para descubrir el japonés, con ayuda en español.</p>
           <div class="hero-actions"><button id="hero-practice" class="btn primary" type="button">Empezar una charla <svg class="icon flip-x"><use href="/static/icons.svg#arrow-left"/></svg></button><button id="hero-explore" class="btn" type="button">Explorar situaciones</button></div>
         </div>
-        <div class="hero-art"><img class="hero-art" src="/static/brand/neighborhood.webp" width="768" height="512" alt="Ilustración de una calle japonesa con una cafetería y un pequeño restaurante" fetchpriority="high"></div>
+        <div class="hero-art"><img class="hero-art amadeus-portrait" src="/static/brand/amadeus-kurisu.webp" width="1672" height="941" alt="Kurisu Makise en el laboratorio Amadeus" fetchpriority="high"></div><div class="hero-signature" aria-hidden="true">AMADEUS <span>会話 / KAIWA</span></div>
       </div>
 
       <h2 class="sect">¿Cómo te apetece practicar?</h2>
@@ -176,7 +176,7 @@
     </section>
 
     <section id="view-companion" class="view hidden">
-      <header class="companion-heading"><div><p class="eyebrow">TU ASISTENTE PERSONAL</p><h1>Un japonés que va contigo.</h1><p class="sub">Prepara situaciones, pregunta tus dudas y encuentra una forma de practicar que encaje con tu vida.</p></div><img src="/static/brand/study.webp" alt="" width="240" height="160"></header>
+      <header class="companion-heading"><div><p class="eyebrow">AMADEUS / ASISTENTE PERSONAL</p><h1>Tu próxima conversación<br>empieza aquí.</h1><p class="sub">Prepara situaciones, resuelve tus dudas y construye una forma de practicar que encaje contigo.</p><p class="companion-identity">Conversación y memoria, a tu ritmo.</p></div><img class="amadeus-portrait" src="/static/brand/amadeus-kurisu.webp" alt="Kurisu Makise, imagen de tu asistente Amadeus" width="280" height="280"></header>
       <div class="companion-tabs" role="group" aria-label="Espacios de tu asistente"><button type="button" id="companion-chat" aria-pressed="true">Conversación</button><button type="button" id="companion-memory" aria-pressed="false">Tu memoria</button></div>
       <section id="companion-chat-panel" aria-label="Conversación con tu asistente">
         <div id="companion-messages" role="log" aria-live="polite" aria-label="Mensajes del asistente"></div>
@@ -272,12 +272,12 @@
 <!-- Voice call overlay -->
 <div id="call-overlay" class="call-overlay hidden">
   <div class="call-head">
-    <span class="call-name">カイワ Kaiwa</span>
+    <span class="call-name">AMADEUS <small>GPT LIVE · EXPERIMENTAL</small></span>
     <span id="call-timer">0:00</span>
   </div>
   <div class="call-stage">
     <div id="call-avatar" class="call-avatar" title="Pulsa para interrumpir">
-      <span class="call-face"><img src="/static/brand/kaiwa-mark.png" alt="Kaiwa" width="100" height="100"></span>
+      <span class="call-face"><img class="amadeus-portrait" src="/static/brand/amadeus-kurisu.webp" alt="Kurisu Makise en Amadeus, conversación por voz" width="240" height="240"></span>
       <span class="ring r1"></span><span class="ring r2"></span>
     </div>
     <div id="call-status" class="call-status">Conectando…</div>
@@ -342,8 +342,8 @@
 <!-- Onboarding modal -->
 <div id="onboard-modal" class="modal hidden">
   <div class="modal-inner">
-    <img class="welcome-art" src="/static/brand/neighborhood.webp" alt="" width="768" height="512">
-    <p class="eyebrow">KAIWA · 会話</p>
+    <img class="welcome-art amadeus-portrait" src="/static/brand/amadeus-kurisu.webp" alt="Kurisu Makise te recibe en Amadeus" width="1672" height="941">
+    <p class="eyebrow">AMADEUS / KAIWA · 会話</p>
     <h2>ようこそ！ Tu japonés empieza aquí</h2>
 
     <!-- STEP 0: AI setup (skipped when an AI is already working) -->
